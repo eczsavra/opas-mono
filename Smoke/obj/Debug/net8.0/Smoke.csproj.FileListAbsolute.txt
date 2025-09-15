@@ -1,0 +1,14 @@
+C:\OPAS\Smoke\bin\Debug\net8.0\Smoke.exe
+C:\OPAS\Smoke\bin\Debug\net8.0\Smoke.deps.json
+C:\OPAS\Smoke\bin\Debug\net8.0\Smoke.runtimeconfig.json
+C:\OPAS\Smoke\bin\Debug\net8.0\Smoke.dll
+C:\OPAS\Smoke\bin\Debug\net8.0\Smoke.pdb
+C:\OPAS\Smoke\obj\Debug\net8.0\Smoke.GeneratedMSBuildEditorConfig.editorconfig
+C:\OPAS\Smoke\obj\Debug\net8.0\Smoke.AssemblyInfoInputs.cache
+C:\OPAS\Smoke\obj\Debug\net8.0\Smoke.AssemblyInfo.cs
+C:\OPAS\Smoke\obj\Debug\net8.0\Smoke.csproj.CoreCompileInputs.cache
+C:\OPAS\Smoke\obj\Debug\net8.0\Smoke.dll
+C:\OPAS\Smoke\obj\Debug\net8.0\refint\Smoke.dll
+C:\OPAS\Smoke\obj\Debug\net8.0\Smoke.pdb
+C:\OPAS\Smoke\obj\Debug\net8.0\Smoke.genruntimeconfig.cache
+C:\OPAS\Smoke\obj\Debug\net8.0\ref\Smoke.dll

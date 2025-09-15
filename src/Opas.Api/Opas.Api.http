@@ -1,0 +1,6 @@
+@Opas.Api_HostAddress = http://localhost:5078
+
+GET {{Opas.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

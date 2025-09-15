@@ -1,0 +1,3 @@
+﻿<Project>
+  <Import Project="..\build\Opas.Api.props" />
+</Project>
