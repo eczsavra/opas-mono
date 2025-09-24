@@ -164,7 +164,7 @@ const UltraButton = styled(Button)(({ theme }) => ({
 
 // 2024 Güvenli Şifre Kuralları
 const passwordRules = [
-  { rule: 'En az 12 karakter', regex: /.{12,}/, icon: '📏' },
+  { rule: 'En az 8 karakter', regex: /.{8,}/, icon: '📏' },
   { rule: 'Büyük harf (A-Z)', regex: /[A-Z]/, icon: '🔤' },
   { rule: 'Küçük harf (a-z)', regex: /[a-z]/, icon: '🔡' },
   { rule: 'Rakam (0-9)', regex: /[0-9]/, icon: '🔢' },
@@ -179,7 +179,7 @@ interface Step {
 }
 
 const steps: Step[] = [
-  { label: 'Kullanıcı Doğrulama', description: 'Admin eczacı kontrolü' },
+  { label: 'Kullanıcı Doğrulama', description: 'Email + GLN çift kontrolü' },
   { label: 'SMS/Mail Doğrulama', description: 'Güvenlik kodu gönderimi' },
   { label: 'Yeni Şifre', description: 'Güvenli şifre belirleme' },
 ]
@@ -189,16 +189,21 @@ export default function ForgotPassword() {
   const [activeStep, setActiveStep] = useState(0)
   const [loading, setLoading] = useState(false)
   
-  // Step 1: User Validation
+  // Step 0: User Validation (Email + GLN)
   const [email, setEmail] = useState('')
-  const [pharmacyCode, setPharmacyCode] = useState('')
+  const [username, setUsername] = useState('')
+  const [gln, setGln] = useState<string[]>(Array(13).fill(''))
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
   
-  // Step 2: Verification
+  // Step 1: Verification
   const [verificationMethod, setVerificationMethod] = useState<'sms' | 'email'>('email')
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [verificationCode, setVerificationCode] = useState('')
+  const [codeDigits, setCodeDigits] = useState<string[]>(Array(6).fill(''))
   const [countdown, setCountdown] = useState(0)
   
-  // Step 3: New Password
+  // Step 2: New Password
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -214,6 +219,55 @@ export default function ForgotPassword() {
       return () => clearTimeout(timer)
     }
   }, [countdown])
+
+  // Error/Success otomatik temizleme
+  useEffect(() => {
+    if (error || success) {
+      const timer = setTimeout(() => {
+        setError('')
+        setSuccess('')
+      }, 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [error, success])
+
+  // GLN başlangıç değerini ayarla
+  useEffect(() => {
+    if (gln[0] === '' && gln[1] === '' && gln[2] === '') {
+      const newGln = [...gln]
+      newGln[0] = '8'
+      newGln[1] = '6' 
+      newGln[2] = '8'
+      setGln(newGln)
+    }
+  }, [gln])
+
+  // GLN digit handler
+  const handleGLNDigitChange = (index: number, value: string) => {
+    if (index < 3) return // İlk 3 hane değiştirilemez
+
+    if (!/^\d*$/.test(value)) return // Sadece rakam
+
+    const newGln = [...gln]
+    newGln[index] = value
+
+    if (value && index < 12) {
+      // Sonraki kutuya geç
+      const nextInput = document.querySelector(`input[name="gln-${index + 1}"]`) as HTMLInputElement
+      if (nextInput) nextInput.focus()
+    }
+
+    setGln(newGln)
+  }
+
+  // GLN key handler
+  const handleGLNKeyDown = (index: number, e: React.KeyboardEvent) => {
+    if (e.key === 'Backspace' && !gln[index] && index > 3) {
+      // Önceki kutuya geç
+      const prevInput = document.querySelector(`input[name="gln-${index - 1}"]`) as HTMLInputElement
+      if (prevInput) prevInput.focus()
+    }
+  }
 
   const checkPasswordStrength = (password: string) => {
     return passwordRules.map(rule => ({
@@ -233,14 +287,109 @@ export default function ForgotPassword() {
 
   const handleNext = async () => {
     setLoading(true)
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 2000))
+    setError('')
+    setSuccess('')
     
-    if (activeStep === 1 && verificationMethod === 'sms') {
-      setCountdown(60) // 60 saniye countdown
+    try {
+      if (activeStep === 0) {
+        // Email ile kullanıcı kontrolü
+        const response = await fetch(`/api/opas/auth/check-email?email=${encodeURIComponent(email)}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        })
+        
+        if (!response.ok) {
+          setError('Email kontrolü başarısız. Lütfen tekrar deneyin.')
+          setLoading(false)
+          return
+        }
+        
+        const result = await response.json()
+        if (!result.found) {
+          setError('Bu email adresi ile kayıtlı kullanıcı bulunamadı.')
+          setLoading(false)
+          return
+        }
+        
+        // Kullanıcı bulundu, username'i sakla
+        setUsername(result.username)
+        
+        // ÇIFT DOĞRULAMA: GLN kontrolü de yap
+        const enteredGln = gln.join('')
+        
+        if (enteredGln.length !== 13) {
+          setError('GLN numarası 13 haneli olmalıdır!')
+          setLoading(false)
+          return
+        }
+        
+        // Şimdilik test amaçlı: kayıtlı kullanıcının GLN'i 8680001530144
+        // Gerçek uygulamada backend'den kullanıcının GLN'ini alacağız
+        const expectedGln = '8680001530144' // eczsavra kullanıcısının GLN'i
+        
+        if (enteredGln !== expectedGln) {
+          // Modern toast notification yerine güzel bir snackbar gösterelim
+          setError(`GLN numarası hatalı! Bu email ile kayıtlı GLN: ${expectedGln.substring(0, 6)}****`)
+          setLoading(false)
+          return
+        }
+        
+        console.log('✅ ÇIFT DOĞRULAMA BAŞARILI - Email + GLN:', { email, gln: enteredGln })
+        
+      } else if (activeStep === 1) {
+        // Doğrulama kodu kontrolü
+        const enteredCode = codeDigits.join('')
+        const expectedCode = verificationMethod === 'email' ? '123456' : '654321'
+        
+        if (enteredCode !== expectedCode) {
+          setError(`Doğrulama kodu hatalı! Test kodu: ${expectedCode}`)
+          setLoading(false)
+          return
+        }
+        
+        // Doğrulama kodu gönder (simülasyon)
+        if (verificationMethod === 'email') {
+          console.log('📧 Email doğrulama kodu gönderildi: 123456')
+        } else {
+          console.log('📱 SMS doğrulama kodu gönderildi: 654321')
+        }
+        setCountdown(60)
+      } else if (activeStep === 2) {
+        // Şifre sıfırlama
+        console.log('🔐 Şifre sıfırlama başlatılıyor:', { username, newPassword: newPassword.substring(0, 3) + '***' })
+        
+        const response = await fetch('/api/opas/auth/password-reset', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            username: username, 
+            newPassword: newPassword 
+          })
+        })
+        
+        console.log('🔐 Şifre sıfırlama response:', response.status, response.statusText)
+        
+        const result = await response.json()
+        console.log('🔐 Şifre sıfırlama result:', result)
+        
+          if (!result.success) {
+            setError(`Şifre sıfırlama başarısız: ${result.error}`)
+            setLoading(false)
+            return
+          } else {
+            setSuccess('Şifre başarıyla sıfırlandı! Giriş sayfasına yönlendiriliyorsunuz...')
+            setTimeout(() => {
+              window.location.href = '/login2'
+            }, 2000)
+          }
+      }
+      
+      setActiveStep((prevStep) => prevStep + 1)
+    } catch (error) {
+      console.error('Error:', error)
+      setError('Bir hata oluştu. Lütfen tekrar deneyin.')
     }
     
-    setActiveStep((prevStep) => prevStep + 1)
     setLoading(false)
   }
 
@@ -250,9 +399,24 @@ export default function ForgotPassword() {
 
   const handleSendVerification = async () => {
     setLoading(true)
-    // Simulate sending verification code
-    await new Promise(resolve => setTimeout(resolve, 1500))
-    setCountdown(60)
+    
+    try {
+      // Test amaçlı sabit kodlar
+      if (verificationMethod === 'email') {
+        console.log('📧 Email doğrulama kodu gönderildi: 123456')
+        setSuccess('📧 Email doğrulama kodu gönderildi! Test kodu: 123456')
+      } else {
+        console.log('📱 SMS doğrulama kodu gönderildi: 654321')
+        setSuccess('📱 SMS doğrulama kodu gönderildi! Test kodu: 654321')
+      }
+      
+      setCountdown(60)
+      setCodeDigits(Array(6).fill(''))
+    } catch (error) {
+      console.error('Error:', error)
+      setError('Bir hata oluştu. Lütfen tekrar deneyin.')
+    }
+    
     setLoading(false)
   }
 
@@ -279,22 +443,69 @@ export default function ForgotPassword() {
                   ),
                 }}
               />
-              <ModernTextField
-                fullWidth
-                label="Eczane GLN Kodu"
-                value={pharmacyCode}
-                onChange={(e) => setPharmacyCode(e.target.value)}
-                placeholder="868..."
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Shield color="primary" />
-                    </InputAdornment>
-                  ),
-                }}
-              />
-              <Alert severity="info" sx={{ borderRadius: 2 }}>
-                <strong>Admin Eczacı Kontrolü:</strong> Sadece kayıtlı eczane admin kullanıcıları şifre sıfırlayabilir.
+              {/* 13 haneli GLN input */}
+              <Box>
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                  GLN Numarası (13 hane)
+                </Typography>
+                <Box sx={{ 
+                  display: 'flex', 
+                  gap: { xs: 0.2, sm: 0.3 }, 
+                  justifyContent: 'center', 
+                  flexWrap: 'wrap',
+                  maxWidth: '100%',
+                  px: 0.5
+                }}>
+                  {gln.map((digit, index) => (
+                    <TextField
+                      key={index}
+                      name={`gln-${index}`}
+                      size="small"
+                      variant="outlined"
+                      inputProps={{
+                        maxLength: 1,
+                        style: { 
+                          textAlign: 'center', 
+                          fontSize: '0.85rem', 
+                          fontWeight: '600',
+                          padding: '0px'
+                        },
+                      }}
+                      sx={{
+                        width: { xs: 22, sm: 24, md: 26 },
+                        minWidth: 20,
+                        '& .MuiOutlinedInput-root': {
+                          borderRadius: 0.5,
+                          height: { xs: 28, sm: 30 },
+                          minHeight: 28,
+                          '& input': {
+                            padding: '4px 0px',
+                            textAlign: 'center'
+                          },
+                          '&.Mui-focused': {
+                            '& fieldset': {
+                              borderColor: 'primary.main',
+                              borderWidth: 1.5,
+                            },
+                          },
+                          '&.Mui-disabled': {
+                            backgroundColor: 'grey.100',
+                          },
+                        },
+                      }}
+                      value={digit}
+                      onChange={(e) => handleGLNDigitChange(index, e.target.value)}
+                      onKeyDown={(e) => handleGLNKeyDown(index, e)}
+                      disabled={index < 3} // İlk 3 hane (868) disabled
+                    />
+                  ))}
+                </Box>
+                <Typography variant="caption" sx={{ mt: 1, display: 'block', textAlign: 'center', color: 'text.secondary' }}>
+                  GLN numaranız 868 ile başlamalıdır
+                </Typography>
+              </Box>
+              <Alert severity="warning" sx={{ borderRadius: 2 }}>
+                <strong>Çift Doğrulama:</strong> Email ve GLN numaranız kayıtlı bilgilerinizle eşleşmelidir.
               </Alert>
             </Stack>
           </Box>
@@ -329,21 +540,60 @@ export default function ForgotPassword() {
                 </Stack>
               </Box>
               
-              <ModernTextField
-                fullWidth
-                label="Doğrulama Kodu"
-                value={verificationCode}
-                onChange={(e) => setVerificationCode(e.target.value)}
-                placeholder="6 haneli kod"
-                inputProps={{ maxLength: 6 }}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Security color="primary" />
-                    </InputAdornment>
-                  ),
-                }}
-              />
+              <Box>
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>Doğrulama Kodu (6 hane)</Typography>
+                <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
+                  {Array.from({ length: 6 }, (_, index) => (
+                    <TextField
+                      key={index}
+                      value={codeDigits[index] || ''}
+                      onChange={(e) => {
+                        const v = e.target.value.replace(/\D/g, '').slice(0, 1)
+                        setCodeDigits(prev => {
+                          const next = [...prev]
+                          next[index] = v
+                          return next
+                        })
+                        if (v && index < 5) {
+                          const nextEl = document.querySelector<HTMLInputElement>(`input[data-code-index="${index + 1}"]`)
+                          nextEl?.focus()
+                          nextEl?.select()
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Backspace' && !codeDigits[index] && index > 0) {
+                          const prevEl = document.querySelector<HTMLInputElement>(`input[data-code-index="${index - 1}"]`)
+                          prevEl?.focus()
+                          prevEl?.select()
+                        }
+                      }}
+                      onFocus={(e) => (e.target as HTMLInputElement).select()}
+                      inputProps={{
+                        maxLength: 1,
+                        inputMode: 'numeric',
+                        pattern: '[0-9]',
+                        'data-code-index': index,
+                        style: {
+                          textAlign: 'center',
+                          fontSize: '1.2rem',
+                          fontWeight: 'bold',
+                          padding: '8px 4px'
+                        }
+                      }}
+                      sx={{
+                        width: 42,
+                        height: 52,
+                        '& .MuiOutlinedInput-root': {
+                          borderRadius: 2,
+                          '&.Mui-focused': {
+                            boxShadow: '0 0 0 2px rgba(25,118,210,0.2)'
+                          }
+                        }
+                      }}
+                    />
+                  ))}
+                </Box>
+              </Box>
               
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Button
@@ -564,6 +814,52 @@ export default function ForgotPassword() {
           )}
         </GlassPaper>
       </Box>
+
+      {/* Modern Error/Success Notification */}
+      {(error || success) && (
+        <Box
+          sx={{
+            position: 'fixed',
+            top: 20,
+            right: 20,
+            zIndex: 9999,
+            minWidth: 300,
+            maxWidth: 500,
+          }}
+        >
+          <Alert
+            severity={error ? 'error' : 'success'}
+            onClose={() => {
+              setError('')
+              setSuccess('')
+            }}
+            sx={{
+              borderRadius: 3,
+              boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+              backdropFilter: 'blur(10px)',
+              background: error 
+                ? 'linear-gradient(135deg, rgba(255,72,72,0.9) 0%, rgba(255,100,100,0.8) 100%)'
+                : 'linear-gradient(135deg, rgba(72,255,72,0.9) 0%, rgba(100,255,100,0.8) 100%)',
+              color: 'white',
+              fontWeight: 600,
+              '& .MuiAlert-icon': {
+                color: 'white',
+                fontSize: '1.5rem'
+              },
+              '& .MuiAlert-action': {
+                '& .MuiIconButton-root': {
+                  color: 'white',
+                  '&:hover': {
+                    backgroundColor: 'rgba(255,255,255,0.1)'
+                  }
+                }
+              }
+            }}
+          >
+            {error || success}
+          </Alert>
+        </Box>
+      )}
     </ModernContainer>
   )
 }

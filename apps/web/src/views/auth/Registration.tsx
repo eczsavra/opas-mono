@@ -1230,7 +1230,7 @@ export default function Registration() {
 
     // 2024 Uluslararası parola kuralları
     const rules = [
-      { regex: /.{12,}/, message: 'En az 12 karakter olmalıdır' },
+      { regex: /.{8,}/, message: 'En az 8 karakter olmalıdır' },
       { regex: /[A-Z]/, message: 'En az bir büyük harf içermelidir' },
       { regex: /[a-z]/, message: 'En az bir küçük harf içermelidir' },
       { regex: /[0-9]/, message: 'En az bir rakam içermelidir' },
@@ -2485,7 +2485,7 @@ export default function Registration() {
             </Typography>
             <Stack spacing={0.5}>
               {[
-                { test: credentialsInfo.password.length >= 12, text: 'En az 12 karakter' },
+                { test: credentialsInfo.password.length >= 8, text: 'En az 8 karakter' },
                 { test: /[A-Z]/.test(credentialsInfo.password), text: 'En az bir büyük harf (A-Z)' },
                 { test: /[a-z]/.test(credentialsInfo.password), text: 'En az bir küçük harf (a-z)' },
                 { test: /[0-9]/.test(credentialsInfo.password), text: 'En az bir rakam (0-9)' },

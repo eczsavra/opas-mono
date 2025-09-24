@@ -4,7 +4,10 @@ import { NextRequest, NextResponse } from 'next/server'
 const validateGLNFromDB = async (gln: string) => {
   try {
     // OPAS backend API çağrısı - gerçek GLN veritabanından kontrol
-    const backendUrl = process.env.OPAS_BACKEND_URL || 'http://localhost:5080'
+    const backendUrl =
+      process.env.NEXT_PUBLIC_BACKEND_URL ||
+      process.env.OPAS_BACKEND_URL ||
+      'http://127.0.0.1:5080'
     console.log(`🔍 GLN Validation attempt for: ${gln} -> ${backendUrl}/auth/register/validate-gln?value=${gln}`)
     const response = await fetch(`${backendUrl}/auth/register/validate-gln?value=${gln}`, {
       method: 'GET',
@@ -20,7 +23,8 @@ const validateGLNFromDB = async (gln: string) => {
       if (response.status === 404) {
         return { found: false, data: null, error: 'GLN bulunamadı' }
       }
-      throw new Error(`Backend API error: ${response.status}`)
+      // Backend ayakta fakat farklı bir hata döndü
+      return { found: false, data: null, error: `Backend hata kodu: ${response.status}` }
     }
 
     const result = await response.json()
@@ -90,7 +94,7 @@ const validateGLNFromDB = async (gln: string) => {
       return { found: false, data: null, error: 'Doğrulama zaman aşımına uğradı' }
     }
     
-    return { found: false, data: null, error: 'Backend servisi erişilemez durumda (localhost:5080)' }
+    return { found: false, data: null, error: `Backend servisine ulaşılamadı (${(process.env.NEXT_PUBLIC_BACKEND_URL||process.env.OPAS_BACKEND_URL||'127.0.0.1:5080')})` }
   }
 }
 
@@ -127,16 +131,19 @@ export async function GET(request: NextRequest) {
     if (result.found && result.data) {
       return NextResponse.json({
         ok: true,
+        found: true,
         data: result.data,
         message: 'GLN doğrulandı - Gerçek verilerden (OPAS Backend)'
       })
-    } else {
-      return NextResponse.json({
-        ok: false,
-        error: result.error || 'Bu GLN kayıtlı değil veya sistemde bulunamadı',
-        data: null
-      }, { status: 404 })
     }
+
+    // Not found is NOT an error for registration flow; respond 200 with found:false
+    return NextResponse.json({
+      ok: true,
+      found: false,
+      data: null,
+      message: result.error || 'GLN bulunamadı'
+    })
 
   } catch (error) {
     console.error('GLN validation error:', error)

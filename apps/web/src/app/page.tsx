@@ -8,17 +8,20 @@ import {
   Box, 
   Button,
   Paper,
-  Avatar
+  Avatar,
+  useTheme,
+  useMediaQuery
 } from '@mui/material'
 import { 
-  Dashboard as DashboardIcon,
   TrendingUp,
   People,
   Inventory,
   Receipt,
-  MedicalServices 
+  MedicalServices
 } from '@mui/icons-material'
 import Link from 'next/link'
+import ModernSidebar from '@/components/ModernSidebar'
+import TopNavbar from '@/components/TopNavbar'
 
 const StatCard = ({ title, value, icon, color, change }: {
   title: string
@@ -63,18 +66,43 @@ const StatCard = ({ title, value, icon, color, change }: {
 )
 
 export default function Dashboard() {
+  const theme = useTheme()
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'))
+
   return (
-    <Container maxWidth="xl" sx={{ py: 4, px: 2 }}>
-      {/* Header */}
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" sx={{ fontWeight: 700, mb: 1, display: 'flex', alignItems: 'center', gap: 2 }}>
-          <DashboardIcon sx={{ fontSize: 40, color: 'primary.main' }} />
-          OPAS Dashboard
-        </Typography>
-        <Typography variant="subtitle1" color="textSecondary">
-          Modern Eczane Yönetim Sistemi - Hoş geldiniz! 👋
-        </Typography>
-      </Box>
+    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+      {/* Modern Sidebar */}
+      {!isMobile && <ModernSidebar currentPath="/" />}
+      
+      {/* Main Content */}
+      <Box 
+        component="main" 
+        sx={{ 
+          flexGrow: 1,
+          backgroundColor: theme.palette.background.default,
+          minHeight: '100vh',
+          position: 'relative'
+        }}
+      >
+        {/* Modern Top Navbar */}
+        <TopNavbar 
+          sidebarCollapsed={false}
+          userName="Muhammed E. Arvas"
+          username="eczsavra"
+        />
+
+        <Container maxWidth="xl" sx={{ py: 3, px: 3 }}>
+      {/* Welcome Message - Only for Mobile */}
+      {isMobile && (
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="h5" sx={{ fontWeight: 600, mb: 1 }}>
+            Modern Eczane Yönetim Sistemi - Hoş geldiniz! 👋
+          </Typography>
+          <Typography variant="subtitle1" color="textSecondary">
+            Günlük işlemlerinizi buradan yönetebilirsiniz
+          </Typography>
+        </Box>
+      )}
 
       {/* Stats Grid */}
       <Box sx={{ 
@@ -183,6 +211,8 @@ export default function Dashboard() {
           </Button>
         </Box>
       </Paper>
-    </Container>
+        </Container>
+      </Box>
+    </Box>
   )
 }

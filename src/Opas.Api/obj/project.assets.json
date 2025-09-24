@@ -1678,7 +1678,7 @@
           "Microsoft.EntityFrameworkCore": "9.0.0",
           "Microsoft.Extensions.Hosting.Abstractions": "8.0.0",
           "Microsoft.Extensions.Http": "8.0.0",
-          "Npgsql.EntityFrameworkCore.PostgreSQL": "8.0.20",
+          "Npgsql.EntityFrameworkCore.PostgreSQL": "9.0.0",
           "Opas.Shared": "1.0.0",
           "System.ServiceModel.Http": "6.0.0"
         },
@@ -4722,9 +4722,11 @@
     "net8.0": [
       "MediatR >= 13.0.0",
       "Microsoft.AspNetCore.OpenApi >= 8.0.20",
+      "Microsoft.EntityFrameworkCore >= 9.0.0",
       "Microsoft.EntityFrameworkCore.Design >= 9.0.0",
       "Microsoft.FeatureManagement >= 4.3.0",
       "Microsoft.FeatureManagement.AspNetCore >= 4.3.0",
+      "Npgsql.EntityFrameworkCore.PostgreSQL >= 9.0.0",
       "Opas.Application >= 1.0.0",
       "Opas.Infrastructure >= 1.0.0",
       "Opas.Shared >= 1.0.0",
@@ -4793,6 +4795,10 @@
             "target": "Package",
             "version": "[8.0.20, )"
           },
+          "Microsoft.EntityFrameworkCore": {
+            "target": "Package",
+            "version": "[9.0.0, )"
+          },
           "Microsoft.EntityFrameworkCore.Design": {
             "include": "Runtime, Build, Native, ContentFiles, Analyzers, BuildTransitive",
             "suppressParent": "All",
@@ -4806,6 +4812,10 @@
           "Microsoft.FeatureManagement.AspNetCore": {
             "target": "Package",
             "version": "[4.3.0, )"
+          },
+          "Npgsql.EntityFrameworkCore.PostgreSQL": {
+            "target": "Package",
+            "version": "[9.0.0, )"
           },
           "Swashbuckle.AspNetCore": {
             "target": "Package",
@@ -4834,17 +4844,5 @@
         "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.414/PortableRuntimeIdentifierGraph.json"
       }
     }
-  },
-  "logs": [
-    {
-      "code": "NU1603",
-      "level": "Warning",
-      "warningLevel": 1,
-      "message": "Opas.Infrastructure depends on Npgsql.EntityFrameworkCore.PostgreSQL (>= 8.0.20) but Npgsql.EntityFrameworkCore.PostgreSQL 8.0.20 was not found. An approximate best match of Npgsql.EntityFrameworkCore.PostgreSQL 9.0.0 was resolved.",
-      "libraryId": "Npgsql.EntityFrameworkCore.PostgreSQL",
-      "targetGraphs": [
-        "net8.0"
-      ]
-    }
-  ]
+  }
 }

@@ -13,7 +13,8 @@ export async function POST(request: Request) {
     }
 
     // Call backend API
-    const backendUrl = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/pharmacist/register`
+    const base = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.OPAS_BACKEND_URL || 'http://127.0.0.1:5080'
+    const backendUrl = `${base}/api/auth/pharmacist/register`
     const response = await fetch(backendUrl, {
       method: 'POST',
       headers: {

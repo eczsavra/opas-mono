@@ -38,9 +38,9 @@ public static class AuthRegistrationEndpoints
                 .SingleOrDefaultAsync();
 
             if (rec is null)
-                return Results.NotFound(new { ok = false, gln, error = "gln not found in registry" });
+                return Results.Ok(new { ok = true, found = false, gln, message = "gln not found in registry" });
 
-            return Results.Ok(new { ok = true, rec.Gln, rec.CompanyName, rec.City, rec.Town });
+            return Results.Ok(new { ok = true, found = true, rec.Gln, rec.CompanyName, rec.City, rec.Town });
         });
 
         // GET /auth/register/validate-username?value=...

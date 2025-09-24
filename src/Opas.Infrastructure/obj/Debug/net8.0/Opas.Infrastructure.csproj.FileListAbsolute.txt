@@ -14,3 +14,5 @@ C:\OPAS\src\Opas.Infrastructure\obj\Debug\net8.0\ref\Opas.Infrastructure.dll
 C:\OPAS\src\Opas.Infrastructure\bin\Debug\net8.0\Opas.Shared.dll
 C:\OPAS\src\Opas.Infrastructure\bin\Debug\net8.0\Opas.Shared.pdb
 C:\OPAS\src\Opas.Infrastructure\obj\Debug\net8.0\Opas.Inf.1BFDEB14.Up2Date
+C:\OPAS\src\Opas.Infrastructure\bin\Debug\net8.0\Opas.Infrastructure.runtimeconfig.json
+C:\OPAS\src\Opas.Infrastructure\obj\Debug\net8.0\Opas.Infrastructure.genruntimeconfig.cache

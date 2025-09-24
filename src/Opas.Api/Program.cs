@@ -163,6 +163,7 @@ app.MapInfraEndpoints();
 app.MapTenantEndpoints();   
 app.MapAuthNviEndpoints(); 
 app.MapAuthUsernameEndpoints(); // Added Username Check Endpoints
+app.MapAuthEmailCheckEndpoints(); // Added Email Check Endpoints
 app.MapAuthPharmacistRegistrationEndpoints(); // Added PharmacistAdmin Registration Endpoints
 app.MapControlEndpoints();
 app.MapControlGlnEndpoints();
@@ -171,6 +172,8 @@ app.MapInfraHealthEndpoints();
 app.MapControlTenantEndpoints();
 app.MapPublicProductsEndpoints();
 app.MapAuthRegistrationEndpoints();
+app.MapAuthLoginEndpoints(); // Added Login Endpoints
+app.MapAuthPasswordResetEndpoints(); // Added Password Reset Endpoints
 
 // --- GLN DRY-RUN PING ---
 // GET /control/gln/sync/dry-run

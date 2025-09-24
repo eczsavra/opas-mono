@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Opas.Infrastructure.Persistence;
 using Opas.Shared.Auth;
 using Opas.Shared.Common;
+using Opas.Shared.ControlPlane;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -99,6 +100,35 @@ public static class AuthPharmacistRegistrationEndpoints
                 db.PharmacistAdmins.Add(pharmacist);
                 await db.SaveChangesAsync(ct);
 
+                // Create TenantRecord immediately (staged provisioning)
+                // Try to enrich from GLN registry if exists
+                var glnInfo = await db.GlnRegistry
+                    .AsNoTracking()
+                    .Where(x => x.Gln == dto.PersonalGln)
+                    .Select(x => new { x.CompanyName, x.City, x.Town })
+                    .SingleOrDefaultAsync(ct);
+
+                var databaseName = $"tenant_{tenantId.ToLowerInvariant()}";
+                var tenantConnectionString =
+                    $"Host=127.0.0.1;Port=5432;Database={databaseName};Username=postgres;Password=postgres";
+
+                var tenantRecord = new TenantRecord
+                {
+                    TenantId = tenantId,
+                    PharmacistGln = dto.PersonalGln,
+                    PharmacyName = glnInfo?.CompanyName ?? "Unknown Pharmacy",
+                    PharmacyRegistrationNo = dto.PharmacyRegistrationNo,
+                    City = glnInfo?.City,
+                    District = glnInfo?.Town,
+                    TenantConnectionString = tenantConnectionString,
+                    Status = "Provisioning",
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+
+                db.Tenants.Add(tenantRecord);
+                await db.SaveChangesAsync(ct);
+
                 return Results.Created($"/api/auth/pharmacist/{pharmacist.Id}", new
                 {
                     success = true,
@@ -154,9 +184,9 @@ public static class AuthPharmacistRegistrationEndpoints
             return false;
         }
 
-        if (string.IsNullOrWhiteSpace(dto.Password) || dto.Password.Length < 12)
+        if (string.IsNullOrWhiteSpace(dto.Password) || dto.Password.Length < 8)
         {
-            error = "Parola en az 12 karakter olmalı";
+            error = "Parola en az 8 karakter olmalı";
             return false;
         }
 
