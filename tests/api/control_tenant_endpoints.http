@@ -1,0 +1,11 @@
+### Control Tenant endpoints tests
+
+### Create/Update tenant
+POST http://127.0.0.1:5080/control/tenant
+Content-Type: application/json
+
+{
+  "gln": "8690123456789",
+  "pharmacyName": "Test Pharmacy",
+  "tenantConnectionString": "Host=localhost;Database=tenant_test;Username=postgres;Password=password"
+}

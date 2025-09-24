@@ -1,0 +1,12 @@
+C:\OPAS\src\Opas.Shared\bin\Debug\net8.0\Opas.Shared.deps.json
+C:\OPAS\src\Opas.Shared\bin\Debug\net8.0\Opas.Shared.dll
+C:\OPAS\src\Opas.Shared\bin\Debug\net8.0\Opas.Shared.pdb
+C:\OPAS\src\Opas.Shared\obj\Debug\net8.0\Opas.Shared.GeneratedMSBuildEditorConfig.editorconfig
+C:\OPAS\src\Opas.Shared\obj\Debug\net8.0\Opas.Shared.AssemblyInfoInputs.cache
+C:\OPAS\src\Opas.Shared\obj\Debug\net8.0\Opas.Shared.AssemblyInfo.cs
+C:\OPAS\src\Opas.Shared\obj\Debug\net8.0\Opas.Shared.csproj.CoreCompileInputs.cache
+C:\OPAS\src\Opas.Shared\obj\Debug\net8.0\Opas.Shared.sourcelink.json
+C:\OPAS\src\Opas.Shared\obj\Debug\net8.0\Opas.Shared.dll
+C:\OPAS\src\Opas.Shared\obj\Debug\net8.0\refint\Opas.Shared.dll
+C:\OPAS\src\Opas.Shared\obj\Debug\net8.0\Opas.Shared.pdb
+C:\OPAS\src\Opas.Shared\obj\Debug\net8.0\ref\Opas.Shared.dll

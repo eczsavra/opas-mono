@@ -1,0 +1,204 @@
+{
+  "version": 1,
+  "parameters": "--include-transitive",
+  "projects": [
+    {
+      "path": "C:/OPAS/src/Opas.Api/Opas.Api.csproj",
+      "frameworks": [
+        {
+          "framework": "net8.0",
+          "topLevelPackages": [
+            {
+              "id": "MediatR",
+              "requestedVersion": "13.0.0",
+              "resolvedVersion": "13.0.0"
+            },
+            {
+              "id": "Microsoft.AspNetCore.OpenApi",
+              "requestedVersion": "8.0.20",
+              "resolvedVersion": "8.0.20"
+            },
+            {
+              "id": "Microsoft.FeatureManagement",
+              "requestedVersion": "4.3.0",
+              "resolvedVersion": "4.3.0"
+            },
+            {
+              "id": "Microsoft.FeatureManagement.AspNetCore",
+              "requestedVersion": "4.3.0",
+              "resolvedVersion": "4.3.0"
+            },
+            {
+              "id": "Swashbuckle.AspNetCore",
+              "requestedVersion": "6.6.2",
+              "resolvedVersion": "6.6.2"
+            }
+          ],
+          "transitivePackages": [
+            {
+              "id": "MediatR.Contracts",
+              "resolvedVersion": "2.0.1"
+            },
+            {
+              "id": "Microsoft.Bcl.TimeProvider",
+              "resolvedVersion": "8.0.1"
+            },
+            {
+              "id": "Microsoft.Extensions.ApiDescription.Server",
+              "resolvedVersion": "6.0.5"
+            },
+            {
+              "id": "Microsoft.Extensions.Caching.Abstractions",
+              "resolvedVersion": "8.0.0"
+            },
+            {
+              "id": "Microsoft.Extensions.Caching.Memory",
+              "resolvedVersion": "8.0.1"
+            },
+            {
+              "id": "Microsoft.Extensions.Configuration",
+              "resolvedVersion": "8.0.0"
+            },
+            {
+              "id": "Microsoft.Extensions.Configuration.Abstractions",
+              "resolvedVersion": "8.0.0"
+            },
+            {
+              "id": "Microsoft.Extensions.Configuration.Binder",
+              "resolvedVersion": "8.0.2"
+            },
+            {
+              "id": "Microsoft.Extensions.DependencyInjection",
+              "resolvedVersion": "8.0.1"
+            },
+            {
+              "id": "Microsoft.Extensions.DependencyInjection.Abstractions",
+              "resolvedVersion": "8.0.2"
+            },
+            {
+              "id": "Microsoft.Extensions.Logging",
+              "resolvedVersion": "8.0.1"
+            },
+            {
+              "id": "Microsoft.Extensions.Logging.Abstractions",
+              "resolvedVersion": "8.0.2"
+            },
+            {
+              "id": "Microsoft.Extensions.Options",
+              "resolvedVersion": "8.0.2"
+            },
+            {
+              "id": "Microsoft.Extensions.Primitives",
+              "resolvedVersion": "8.0.0"
+            },
+            {
+              "id": "Microsoft.IdentityModel.Abstractions",
+              "resolvedVersion": "8.0.1"
+            },
+            {
+              "id": "Microsoft.IdentityModel.JsonWebTokens",
+              "resolvedVersion": "8.0.1"
+            },
+            {
+              "id": "Microsoft.IdentityModel.Logging",
+              "resolvedVersion": "8.0.1"
+            },
+            {
+              "id": "Microsoft.IdentityModel.Tokens",
+              "resolvedVersion": "8.0.1"
+            },
+            {
+              "id": "Microsoft.OpenApi",
+              "resolvedVersion": "1.6.14"
+            },
+            {
+              "id": "Swashbuckle.AspNetCore.Swagger",
+              "resolvedVersion": "6.6.2"
+            },
+            {
+              "id": "Swashbuckle.AspNetCore.SwaggerGen",
+              "resolvedVersion": "6.6.2"
+            },
+            {
+              "id": "Swashbuckle.AspNetCore.SwaggerUI",
+              "resolvedVersion": "6.6.2"
+            },
+            {
+              "id": "System.Diagnostics.DiagnosticSource",
+              "resolvedVersion": "8.0.1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "C:/OPAS/src/Opas.Shared/Opas.Shared.csproj",
+      "frameworks": [
+        {
+          "framework": "net8.0"
+        }
+      ]
+    },
+    {
+      "path": "C:/OPAS/src/Opas.Application/Opas.Application.csproj",
+      "frameworks": [
+        {
+          "framework": "net8.0",
+          "topLevelPackages": [
+            {
+              "id": "MediatR",
+              "requestedVersion": "13.0.0",
+              "resolvedVersion": "13.0.0"
+            }
+          ],
+          "transitivePackages": [
+            {
+              "id": "MediatR.Contracts",
+              "resolvedVersion": "2.0.1"
+            },
+            {
+              "id": "Microsoft.Extensions.DependencyInjection",
+              "resolvedVersion": "8.0.0"
+            },
+            {
+              "id": "Microsoft.Extensions.DependencyInjection.Abstractions",
+              "resolvedVersion": "8.0.0"
+            },
+            {
+              "id": "Microsoft.Extensions.Logging",
+              "resolvedVersion": "8.0.0"
+            },
+            {
+              "id": "Microsoft.Extensions.Logging.Abstractions",
+              "resolvedVersion": "8.0.0"
+            },
+            {
+              "id": "Microsoft.Extensions.Options",
+              "resolvedVersion": "8.0.0"
+            },
+            {
+              "id": "Microsoft.Extensions.Primitives",
+              "resolvedVersion": "8.0.0"
+            },
+            {
+              "id": "Microsoft.IdentityModel.Abstractions",
+              "resolvedVersion": "8.0.1"
+            },
+            {
+              "id": "Microsoft.IdentityModel.JsonWebTokens",
+              "resolvedVersion": "8.0.1"
+            },
+            {
+              "id": "Microsoft.IdentityModel.Logging",
+              "resolvedVersion": "8.0.1"
+            },
+            {
+              "id": "Microsoft.IdentityModel.Tokens",
+              "resolvedVersion": "8.0.1"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

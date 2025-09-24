@@ -1,0 +1,8 @@
+### GLN verilerini kontrol et - Tüm GLN'leri listele
+GET http://localhost:5080/control/gln/search?q=&page=1&size=100
+
+### GLN verilerini kontrol et - 868 ile başlayanları ara
+GET http://localhost:5080/control/gln/search?q=868&page=1&size=100
+
+### GLN verilerini kontrol et - Belirli bir GLN ara (868 ile başlamayan)
+GET http://localhost:5080/control/gln/search?q=123&page=1&size=100

@@ -1,0 +1,7 @@
+### Core endpoints tests
+
+### Core ping
+GET http://127.0.0.1:5080/core/ping
+
+### Core health
+GET http://127.0.0.1:5080/core/health

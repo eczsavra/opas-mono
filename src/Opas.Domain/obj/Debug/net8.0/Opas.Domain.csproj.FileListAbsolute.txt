@@ -1,0 +1,12 @@
+C:\OPAS\src\Opas.Domain\bin\Debug\net8.0\Opas.Domain.deps.json
+C:\OPAS\src\Opas.Domain\bin\Debug\net8.0\Opas.Domain.dll
+C:\OPAS\src\Opas.Domain\bin\Debug\net8.0\Opas.Domain.pdb
+C:\OPAS\src\Opas.Domain\obj\Debug\net8.0\Opas.Domain.GeneratedMSBuildEditorConfig.editorconfig
+C:\OPAS\src\Opas.Domain\obj\Debug\net8.0\Opas.Domain.AssemblyInfoInputs.cache
+C:\OPAS\src\Opas.Domain\obj\Debug\net8.0\Opas.Domain.AssemblyInfo.cs
+C:\OPAS\src\Opas.Domain\obj\Debug\net8.0\Opas.Domain.csproj.CoreCompileInputs.cache
+C:\OPAS\src\Opas.Domain\obj\Debug\net8.0\Opas.Domain.sourcelink.json
+C:\OPAS\src\Opas.Domain\obj\Debug\net8.0\Opas.Domain.dll
+C:\OPAS\src\Opas.Domain\obj\Debug\net8.0\refint\Opas.Domain.dll
+C:\OPAS\src\Opas.Domain\obj\Debug\net8.0\Opas.Domain.pdb
+C:\OPAS\src\Opas.Domain\obj\Debug\net8.0\ref\Opas.Domain.dll

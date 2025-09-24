@@ -1,0 +1,13 @@
+### Public Products endpoints tests
+
+### Get products (default)
+GET http://127.0.0.1:5080/public/products
+
+### Get products with limit
+GET http://127.0.0.1:5080/public/products?take=10
+
+### Search products
+GET http://127.0.0.1:5080/public/products?q=aspirin
+
+### Search products with limit
+GET http://127.0.0.1:5080/public/products?take=5&q=paracetamol

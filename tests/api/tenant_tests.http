@@ -1,0 +1,20 @@
+### ping (default)
+GET http://127.0.0.1:5080/tenant/ping
+
+### ping (acme)
+GET http://127.0.0.1:5080/tenant/ping
+X-Tenant-Id: acme
+
+### tenant id (default)
+GET http://127.0.0.1:5080/tenant/id
+
+### tenant id (acme)
+GET http://127.0.0.1:5080/tenant/id
+X-Tenant-Id: acme
+
+### tenant dbctx (default)
+GET http://127.0.0.1:5080/tenant/dbctx
+
+### tenant dbctx (acme)
+GET http://127.0.0.1:5080/tenant/dbctx
+X-Tenant-Id: acme

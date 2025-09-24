@@ -1,0 +1,4 @@
+### Control endpoints tests
+
+### Control health
+GET http://127.0.0.1:5080/control/health

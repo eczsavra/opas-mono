@@ -1,0 +1,7 @@
+### Diagnostics endpoints tests
+
+### Ping handler
+GET http://127.0.0.1:5080/diagnostics/ping
+
+### Ping with custom message
+GET http://127.0.0.1:5080/diagnostics/ping?message=test

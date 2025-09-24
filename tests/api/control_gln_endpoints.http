@@ -1,0 +1,20 @@
+### Control GLN endpoints tests
+
+### GLN sync dry-run
+GET http://127.0.0.1:5080/control/gln/sync/dry-run
+
+### Create/Update GLN
+POST http://127.0.0.1:5080/control/gln
+Content-Type: application/json
+
+{
+  "gln": "8690123456789",
+  "pharmacyName": "Test Pharmacy",
+  "status": "Active"
+}
+
+### Get GLN
+GET http://127.0.0.1:5080/control/gln/8690123456789
+
+### List GLNs
+GET http://127.0.0.1:5080/control/gln
