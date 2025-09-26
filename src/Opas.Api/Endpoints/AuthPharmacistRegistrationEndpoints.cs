@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Opas.Infrastructure.Persistence;
+using Opas.Infrastructure.Logging;
 using Opas.Shared.Auth;
 using Opas.Shared.Common;
 using Opas.Shared.ControlPlane;
+using Opas.Shared.Logging;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -17,62 +19,91 @@ public static class AuthPharmacistRegistrationEndpoints
         app.MapPost("/api/auth/pharmacist/register", async (
             [FromBody] PharmacistRegistrationDto dto,
             [FromServices] ControlPlaneDbContext db,
+            [FromServices] IOpasLogger opasLogger,
+            [FromServices] TenantLoggingService tenantLogging,
+            [FromServices] ManagementLoggingService managementLogging,
+            HttpContext httpContext,
             CancellationToken ct) =>
         {
-            try
+            var clientIP = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            var correlationId = httpContext.TraceIdentifier;
+            
+            using (OpasLogContext.EnrichFromHttpContext(httpContext))
             {
-                // Validation
-                if (!IsValidRegistration(dto, out var validationError))
+                try
                 {
-                    return Results.BadRequest(new { success = false, error = validationError });
-                }
+                    // Log registration attempt
+                    opasLogger.LogSystemEvent("RegistrationAttempt", $"New pharmacist registration attempt from {clientIP}", new { 
+                        GLN = dto.PersonalGln, 
+                        Username = dto.Username, 
+                        Email = dto.Email 
+                    });
 
-                // Check if GLN already registered
-                var existingByGln = await db.PharmacistAdmins
-                    .AsNoTracking()
-                    .AnyAsync(x => x.PersonalGln == dto.PersonalGln, ct);
-                    
-                if (existingByGln)
-                {
-                    return Results.Conflict(new { success = false, error = "Bu GLN ile zaten kayıt yapılmış" });
-                }
+                    // Validation
+                    if (!IsValidRegistration(dto, out var validationError))
+                    {
+                        opasLogger.LogSystemEvent("RegistrationValidationFailed", $"Registration validation failed: {validationError}", new { 
+                            GLN = dto.PersonalGln, 
+                            Username = dto.Username 
+                        });
+                        return Results.BadRequest(new { success = false, error = validationError });
+                    }
 
-                // Check if username already taken
-                var existingByUsername = await db.PharmacistAdmins
-                    .AsNoTracking()
-                    .AnyAsync(x => x.Username == dto.Username.ToLowerInvariant(), ct);
-                    
-                if (existingByUsername)
-                {
-                    return Results.Conflict(new { success = false, error = "Bu kullanıcı adı zaten alınmış" });
-                }
+                    // Check if GLN already registered
+                    var existingByGln = await db.PharmacistAdmins
+                        .AsNoTracking()
+                        .AnyAsync(x => x.PersonalGln == dto.PersonalGln, ct);
+                        
+                    if (existingByGln)
+                    {
+                        opasLogger.LogSystemEvent("RegistrationGLNConflict", $"GLN already registered: {dto.PersonalGln}", new { GLN = dto.PersonalGln });
+                        return Results.Conflict(new { success = false, error = "Bu GLN ile zaten kayıt yapılmış" });
+                    }
 
-                // Check if email already used
-                var existingByEmail = await db.PharmacistAdmins
-                    .AsNoTracking()
-                    .AnyAsync(x => x.Email == dto.Email.ToLowerInvariant(), ct);
-                    
-                if (existingByEmail)
-                {
-                    return Results.Conflict(new { success = false, error = "Bu email zaten kullanılıyor" });
-                }
+                    // Check if username already taken
+                    var existingByUsername = await db.PharmacistAdmins
+                        .AsNoTracking()
+                        .AnyAsync(x => x.Username == dto.Username.ToLowerInvariant(), ct);
+                        
+                    if (existingByUsername)
+                    {
+                        opasLogger.LogSystemEvent("RegistrationUsernameConflict", $"Username already taken: {dto.Username}", new { Username = dto.Username });
+                        return Results.Conflict(new { success = false, error = "Bu kullanıcı adı zaten alınmış" });
+                    }
 
-                // Generate Smart IDs (unique across all types)
-                string pharmacistId;
-                do
-                {
-                    pharmacistId = SmartIdGenerator.GeneratePharmacistId();
-                } while (await db.PharmacistAdmins.AnyAsync(x => x.PharmacistId == pharmacistId, ct) ||
-                         await db.SubUsers.AnyAsync(x => x.SubUserId == pharmacistId, ct));
+                    // Check if email already used
+                    var existingByEmail = await db.PharmacistAdmins
+                        .AsNoTracking()
+                        .AnyAsync(x => x.Email == dto.Email.ToLowerInvariant(), ct);
+                        
+                    if (existingByEmail)
+                    {
+                        opasLogger.LogSystemEvent("RegistrationEmailConflict", $"Email already used: {dto.Email}", new { Email = dto.Email });
+                        return Results.Conflict(new { success = false, error = "Bu email zaten kullanılıyor" });
+                    }
 
-                string tenantId;
-                do
-                {
-                    tenantId = SmartIdGenerator.GenerateTenantId();
-                } while (await db.PharmacistAdmins.AnyAsync(x => x.TenantId == tenantId, ct));
+                    // Generate Smart IDs (unique across all types)
+                    string pharmacistId;
+                    do
+                    {
+                        pharmacistId = SmartIdGenerator.GeneratePharmacistId();
+                    } while (await db.PharmacistAdmins.AnyAsync(x => x.PharmacistId == pharmacistId, ct) ||
+                             await db.SubUsers.AnyAsync(x => x.SubUserId == pharmacistId, ct));
 
-                // Hash password
-                var (hashedPassword, salt) = HashPassword(dto.Password);
+                    string tenantId;
+                    do
+                    {
+                        tenantId = SmartIdGenerator.GenerateTenantId();
+                    } while (await db.PharmacistAdmins.AnyAsync(x => x.TenantId == tenantId, ct));
+
+                    // Log ID generation
+                    opasLogger.LogSystemEvent("RegistrationIDGeneration", $"Generated IDs for new pharmacist", new { 
+                        PharmacistId = pharmacistId, 
+                        TenantId = tenantId 
+                    });
+
+                    // Hash password
+                    var (hashedPassword, salt) = HashPassword(dto.Password);
 
                 // Create PharmacistAdmin record
                 var pharmacist = new PharmacistAdmin
@@ -126,22 +157,54 @@ public static class AuthPharmacistRegistrationEndpoints
                     UpdatedAt = DateTime.UtcNow
                 };
 
-                db.Tenants.Add(tenantRecord);
-                await db.SaveChangesAsync(ct);
+                    db.Tenants.Add(tenantRecord);
+                    await db.SaveChangesAsync(ct);
 
-                return Results.Created($"/api/auth/pharmacist/{pharmacist.Id}", new
+                    // Log successful registration
+                    opasLogger.LogSystemEvent("RegistrationSuccess", $"Pharmacist registration completed successfully", new { 
+                        PharmacistId = pharmacist.PharmacistId, 
+                        TenantId = tenantId, 
+                        GLN = dto.PersonalGln,
+                        Username = dto.Username,
+                        Email = dto.Email
+                    });
+
+                    // Log to management system
+                    managementLogging.LogSystemEvent("NewPharmacistRegistered", $"New pharmacist registered: {dto.Username}", new {
+                        PharmacistId = pharmacist.PharmacistId,
+                        TenantId = tenantId,
+                        GLN = dto.PersonalGln,
+                        IP = clientIP
+                    });
+
+                    // Log to tenant-specific logs (when tenant is active)
+                    tenantLogging.LogTenantActivity(tenantId, pharmacist.PharmacistId, "RegistrationCompleted", new {
+                        Username = dto.Username,
+                        Email = dto.Email,
+                        GLN = dto.PersonalGln
+                    });
+
+                    return Results.Created($"/api/auth/pharmacist/{pharmacist.Id}", new
+                    {
+                        success = true,
+                        pharmacistId = pharmacist.PharmacistId, // Smart ID
+                        tenantId = tenantId,
+                        username = pharmacist.Username,
+                        message = "Eczacı kaydı başarıyla oluşturuldu. Tenant provisioning işlemi başlatıldı."
+                    });
+                }
+                catch (Exception ex)
                 {
-                    success = true,
-                    pharmacistId = pharmacist.PharmacistId, // Smart ID
-                    tenantId = tenantId,
-                    username = pharmacist.Username,
-                    message = "Eczacı kaydı başarıyla oluşturuldu. Tenant provisioning işlemi başlatıldı."
-                });
-            }
-            catch (Exception)
-            {
-                // TODO: Log the exception here with proper logging service
-                return Results.Problem("Kayıt işlemi sırasında bir hata oluştu", statusCode: 500);
+                    // Log registration failure
+                    opasLogger.LogError(ex, $"Pharmacist registration failed for {dto.Username}", new {
+                        GLN = dto.PersonalGln,
+                        Username = dto.Username,
+                        Email = dto.Email,
+                        IP = clientIP
+                    });
+                    
+                    return Results.Problem("Kayıt işlemi sırasında bir hata oluştu", statusCode: 500);
+                }
             }
         })
         .WithName("RegisterPharmacistAdmin")

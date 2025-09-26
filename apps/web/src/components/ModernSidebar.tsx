@@ -29,7 +29,9 @@ import {
   PushPin as PinIcon,
   PushPinOutlined as UnpinIcon,
   Store as PharmacyIcon,
-  LocalPharmacy as MedicineIcon
+  LocalPharmacy as MedicineIcon,
+  Assignment as LogsIcon,
+  Groups as GroupsIcon
 } from '@mui/icons-material'
 import { styled, useTheme } from '@mui/material/styles'
 import Link from 'next/link'
@@ -120,10 +122,13 @@ const HeaderSection = styled(Box)(({ theme }) => ({
 const navigationItems = [
   { id: 'dashboard', text: 'Dashboard', icon: <DashboardIcon />, path: '/', badge: null },
   { id: 'sales', text: 'Satış İşlemleri', icon: <SalesIcon />, path: '/sales', badge: null },
+  { id: 'products', text: 'Ürün Listesi', icon: <MedicineIcon />, path: '/products', badge: null },
+  { id: 'stakeholders', text: 'Eczaneler', icon: <GroupsIcon />, path: '/stakeholders', badge: null },
   { id: 'prescriptions', text: 'Reçete Yönetimi', icon: <PrescriptionIcon />, path: '/prescriptions', badge: 5 },
   { id: 'inventory', text: 'Stok Yönetimi', icon: <InventoryIcon />, path: '/inventory', badge: null },
   { id: 'customers', text: 'Müşteri Yönetimi', icon: <PeopleIcon />, path: '/customers', badge: null },
   { id: 'reports', text: 'Raporlar', icon: <ReceiptIcon />, path: '/reports', badge: null },
+  { id: 'logs', text: 'Sistem Logları', icon: <LogsIcon />, path: '/logs', badge: null },
   { id: 'analytics', text: 'Analitik', icon: <AnalyticsIcon />, path: '/analytics', badge: 'NEW' },
   { id: 'pharmacy', text: 'Eczane Bilgileri', icon: <PharmacyIcon />, path: '/pharmacy', badge: null },
   { id: 'medicines', text: 'İlaç Katalogu', icon: <MedicineIcon />, path: '/medicines', badge: null },

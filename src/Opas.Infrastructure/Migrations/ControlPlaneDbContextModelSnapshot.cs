@@ -22,6 +22,105 @@ namespace Opas.Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Opas.Domain.Entities.LogEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ClientIP")
+                        .HasMaxLength(45)
+                        .HasColumnType("character varying(45)")
+                        .HasColumnName("client_ip");
+
+                    b.Property<string>("CorrelationId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("correlation_id");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long?>("DurationMs")
+                        .HasColumnType("bigint")
+                        .HasColumnName("duration_ms");
+
+                    b.Property<string>("Exception")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("exception");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Level")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("level");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("message");
+
+                    b.Property<string>("Properties")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("properties");
+
+                    b.Property<string>("RequestMethod")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("request_method");
+
+                    b.Property<string>("RequestPath")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("request_path");
+
+                    b.Property<int?>("StatusCode")
+                        .HasColumnType("integer")
+                        .HasColumnName("status_code");
+
+                    b.Property<string>("TenantId")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTime>("Timestamp")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("timestamp");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UserAgent")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("user_agent");
+
+                    b.Property<string>("UserId")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CorrelationId");
+
+                    b.HasIndex("Level");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("Timestamp");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("log_entries", (string)null);
+                });
+
             modelBuilder.Entity("Opas.Shared.Auth.PharmacistAdmin", b =>
                 {
                     b.Property<int>("Id")

@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Opas.Infrastructure.Persistence;
+using Opas.Infrastructure.Logging;
 using Opas.Shared.ControlPlane;
+using Opas.Shared.Logging;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -18,68 +20,86 @@ public static class AuthLoginEndpoints
         // POST /api/auth/login - PharmacistAdmin giriş
         group.MapPost("/", async (
             [FromBody] LoginRequest request,
-            ControlPlaneDbContext db) =>
+            ControlPlaneDbContext db,
+            IOpasLogger opasLogger,
+            DatabaseLoggingService dbLogging,
+            HttpContext httpContext) =>
         {
-            if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
-            {
-                return Results.BadRequest(new { success = false, error = "Kullanıcı adı ve şifre gereklidir" });
-            }
-
-            // Kullanıcıyı bul (username veya email ile)
-            var pharmacist = await db.PharmacistAdmins
-                .AsNoTracking()
-                .Where(p => p.Username == request.Username.ToLowerInvariant() || p.Email == request.Username.ToLowerInvariant())
-                .FirstOrDefaultAsync();
-
-            if (pharmacist == null)
-            {
-                return Results.Ok(new { success = false, error = "Kullanıcı adı veya şifre hatalı" });
-            }
-
-            // Şifre kontrolü
-            var passwordValid = VerifyPassword(request.Password, pharmacist.PasswordHash, pharmacist.PasswordSalt);
-            Console.WriteLine($"🔐 Password verification: {passwordValid}");
-            Console.WriteLine($"🔐 Input password: {request.Password}");
-            Console.WriteLine($"🔐 Stored hash: {pharmacist.PasswordHash}");
-            Console.WriteLine($"🔐 Stored salt: {pharmacist.PasswordSalt}");
+            var clientIP = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
             
-            if (!passwordValid)
+            using (OpasLogContext.EnrichFromHttpContext(httpContext))
             {
-                return Results.Ok(new { success = false, error = "Kullanıcı adı veya şifre hatalı" });
-            }
-
-            // Aktif kullanıcı kontrolü
-            if (!pharmacist.IsActive)
-            {
-                return Results.Ok(new { success = false, error = "Hesabınız aktif değil. Lütfen yöneticinizle iletişime geçin" });
-            }
-
-            // Son giriş zamanını güncelle
-            pharmacist.LastLoginAt = DateTime.UtcNow;
-            db.PharmacistAdmins.Update(pharmacist);
-            await db.SaveChangesAsync();
-
-            // Başarılı giriş response
-            return Results.Ok(new
-            {
-                success = true,
-                message = "Giriş başarılı",
-                user = new
+                if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
                 {
-                    pharmacistId = pharmacist.PharmacistId,
-                    username = pharmacist.Username,
-                    email = pharmacist.Email,
-                    firstName = pharmacist.FirstName,
-                    lastName = pharmacist.LastName,
-                    tenantId = pharmacist.TenantId,
-                    tenantStatus = pharmacist.TenantStatus,
-                    role = pharmacist.Role,
-                    isEmailVerified = pharmacist.IsEmailVerified,
-                    isPhoneVerified = pharmacist.IsPhoneVerified,
-                    isNviVerified = pharmacist.IsNviVerified,
-                    lastLoginAt = pharmacist.LastLoginAt
+                    opasLogger.LogUserLogin(request.Username ?? "empty", clientIP, false, "Missing credentials");
+                    await dbLogging.LogUserLoginAsync(request.Username ?? "empty", "unknown", clientIP, httpContext.Request.Headers.UserAgent.ToString(), false, "Missing credentials");
+                    return Results.BadRequest(new { success = false, error = "Kullanıcı adı ve şifre gereklidir" });
                 }
-            });
+
+                // Kullanıcıyı bul (username veya email ile)
+                var pharmacist = await db.PharmacistAdmins
+                    .AsNoTracking()
+                    .Where(p => p.Username == request.Username.ToLowerInvariant() || p.Email == request.Username.ToLowerInvariant())
+                    .FirstOrDefaultAsync();
+
+                if (pharmacist == null)
+                {
+                    opasLogger.LogUserLogin(request.Username, clientIP, false, "User not found");
+                    await dbLogging.LogUserLoginAsync(request.Username, "unknown", clientIP, httpContext.Request.Headers.UserAgent.ToString(), false, "User not found");
+                    return Results.Ok(new { success = false, error = "Kullanıcı adı veya şifre hatalı" });
+                }
+
+                // Şifre kontrolü
+                var passwordValid = VerifyPassword(request.Password, pharmacist.PasswordHash, pharmacist.PasswordSalt);
+                
+                if (!passwordValid)
+                {
+                    opasLogger.LogUserLogin(pharmacist.Username, clientIP, false, "Invalid password");
+                    await dbLogging.LogUserLoginAsync(pharmacist.Username, pharmacist.TenantId, clientIP, httpContext.Request.Headers.UserAgent.ToString(), false, "Invalid password");
+                    return Results.Ok(new { success = false, error = "Kullanıcı adı veya şifre hatalı" });
+                }
+
+                // Aktif kullanıcı kontrolü
+                if (!pharmacist.IsActive)
+                {
+                    opasLogger.LogUserLogin(pharmacist.Username, clientIP, false, "Account inactive");
+                    await dbLogging.LogUserLoginAsync(pharmacist.Username, pharmacist.TenantId, clientIP, httpContext.Request.Headers.UserAgent.ToString(), false, "Account inactive");
+                    return Results.Ok(new { success = false, error = "Hesabınız aktif değil. Lütfen yöneticinizle iletişime geçin" });
+                }
+
+                // Son giriş zamanını güncelle
+                pharmacist.LastLoginAt = DateTime.UtcNow;
+                db.PharmacistAdmins.Update(pharmacist);
+                await db.SaveChangesAsync();
+
+                // Başarılı giriş logla
+                opasLogger.LogUserLogin(pharmacist.Username, clientIP, true);
+                
+                // Database'e log kaydet
+                await dbLogging.LogUserLoginAsync(pharmacist.Username, pharmacist.TenantId, clientIP, httpContext.Request.Headers.UserAgent.ToString(), true);
+
+                // Başarılı giriş response
+                return Results.Ok(new
+                {
+                    success = true,
+                    message = "Giriş başarılı",
+                    user = new
+                    {
+                        pharmacistId = pharmacist.PharmacistId,
+                        username = pharmacist.Username,
+                        email = pharmacist.Email,
+                        firstName = pharmacist.FirstName,
+                        lastName = pharmacist.LastName,
+                        tenantId = pharmacist.TenantId,
+                        tenantStatus = pharmacist.TenantStatus,
+                        role = pharmacist.Role,
+                        isEmailVerified = pharmacist.IsEmailVerified,
+                        isPhoneVerified = pharmacist.IsPhoneVerified,
+                        isNviVerified = pharmacist.IsNviVerified,
+                        lastLoginAt = pharmacist.LastLoginAt
+                    }
+                });
+            }
         })
         .WithName("LoginPharmacist")
         .WithSummary("PharmacistAdmin giriş")
@@ -87,6 +107,46 @@ public static class AuthLoginEndpoints
         .Produces<object>(200)
         .Produces<object>(400)
         .Produces<object>(401);
+
+        // POST /api/auth/logout - Çıkış yapma
+        group.MapPost("/logout", async (
+            [FromBody] LogoutRequest request,
+            ControlPlaneDbContext db,
+            IOpasLogger opasLogger,
+            DatabaseLoggingService dbLogging,
+            HttpContext httpContext) =>
+        {
+            var clientIP = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            
+            using (OpasLogContext.EnrichFromHttpContext(httpContext))
+            {
+                if (string.IsNullOrWhiteSpace(request.Username))
+                {
+                    return Results.BadRequest(new { success = false, error = "Kullanıcı adı gereklidir" });
+                }
+
+                // Kullanıcıyı bul
+                var pharmacist = await db.PharmacistAdmins
+                    .AsNoTracking()
+                    .Where(p => p.Username == request.Username.ToLowerInvariant())
+                    .FirstOrDefaultAsync();
+
+                // Log kaydet (kullanıcı var olsun ya da olmasın)
+                opasLogger.LogUserLogout(request.Username, clientIP);
+                await dbLogging.LogUserLogoutAsync(
+                    request.Username, 
+                    pharmacist?.TenantId ?? "unknown", 
+                    clientIP
+                );
+
+                return Results.Ok(new { success = true, message = "Çıkış başarılı" });
+            }
+        })
+        .WithName("LogoutPharmacist")
+        .WithSummary("PharmacistAdmin çıkış")
+        .WithDescription("Kullanıcının çıkış yapması için kullanılır")
+        .Produces<object>(200)
+        .Produces<object>(400);
 
         // GET /api/auth/login/check-username - Kullanıcı adı kontrolü
         group.MapGet("/check-username", async (
@@ -134,4 +194,8 @@ public static class AuthLoginEndpoints
 public record LoginRequest(
     string Username,
     string Password
+);
+
+public record LogoutRequest(
+    string Username
 );

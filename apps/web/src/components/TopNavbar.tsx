@@ -183,9 +183,27 @@ export default function TopNavbar({
     setNotificationMenuOpen(!notificationMenuOpen)
   }
 
-  const handleLogout = () => {
-    localStorage.removeItem('user')
-    window.location.href = '/login2'
+  const handleLogout = async () => {
+    try {
+      // Kullanıcı bilgisini al
+      const userData = localStorage.getItem('user')
+      const username = userData ? JSON.parse(userData).username : 'unknown'
+
+      // Backend'e logout isteği gönder
+      await fetch('/api/opas/auth/logout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username }),
+      })
+    } catch (error) {
+      console.error('Logout error:', error)
+    } finally {
+      // Her durumda localStorage temizle ve login'e yönlendir
+      localStorage.removeItem('user')
+      window.location.href = '/login2'
+    }
   }
 
   const handleToggleDarkMode = () => {

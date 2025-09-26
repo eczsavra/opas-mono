@@ -1,0 +1,60 @@
+🚀 GitHub Push Komut Seti
+
+
+📋 Komutlar (Terminal'de sırayla çalıştır):
+
+# 1. Mevcut dizini kontrol et
+pwd
+
+# 2. Git status - hangi dosyalar değişti göster
+git status
+
+# 3. Tüm değişiklikleri staging area'ya ekle
+git add .
+
+# 4. Değişiklikleri commit et (açıklayıcı mesajla)
+git commit -m "feat: ....."
+
+# 5. Remote repository'ye push et
+git push origin main
+
+# 6. (Opsiyonel) Push durumunu kontrol et
+git log --oneline -3
+
+
+📖 Komutların Açıklaması:
+
+1️⃣ pwd - Konum Kontrolü
+--Ne yapar: Hangi dizinde olduğunu gösterir
+--Neden gerekli: /OPAS root'ta olman lazım
+--Beklenen: C:\OPAS veya /OPAS görmelisin
+
+2️⃣ git status - Değişiklik Durumu
+--Ne yapar: Hangi dosyalarda değişiklik olduğunu listeler
+--Göreceklerin:
+    🔴 Modified: apps/web/src/components/TopNavbar.tsx
+    🔴 Modified: apps/web/src/components/ModernSidebar.tsx
+    🔴 Modified: apps/web/src/app/page.tsx
+    🔴 Modified: apps/web/src/app/layout.tsx
+    🔴 Modified: apps/web/src/theme/typography.ts
+    🔴 Modified: apps/web/src/app/globals.css
+
+3️⃣ git add . - Staging
+--Ne yapar: Tüm değişiklikleri "commit'e hazır" duruma getirir
+--Alternatif: Tek tek dosya da ekleyebilirsin: git add apps/web/src/components/TopNavbar.tsx
+
+4️⃣ git commit -m "..." - Kayıt
+--Ne yapar: Değişiklikleri açıklayıcı mesajla kalıcı olarak kaydeder
+--Mesaj formatı:
+    feat: - Yeni özellik
+    fix: - Bug düzeltme
+    refactor: - Kod iyileştirme
+    style: - UI/UX değişikliği
+
+5️⃣ git push origin main - GitHub'a Gönder
+--Ne yapar: Local değişiklikleri GitHub repository'sine gönderir
+--Sonuç: Değişiklikler GitHub'ta görünür olur
+
+6️⃣ git log --oneline -3 - Son Durumu Göster
+--Ne yapar: Son 3 commit'i kısa formatta gösterir
+--Kontrol için: Push'ın başarılı olduğunu doğrular

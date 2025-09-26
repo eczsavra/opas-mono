@@ -4,6 +4,66 @@
     "C:\\OPAS\\src\\Opas.Infrastructure\\Opas.Infrastructure.csproj": {}
   },
   "projects": {
+    "C:\\OPAS\\src\\Opas.Domain\\Opas.Domain.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "C:\\OPAS\\src\\Opas.Domain\\Opas.Domain.csproj",
+        "projectName": "Opas.Domain",
+        "projectPath": "C:\\OPAS\\src\\Opas.Domain\\Opas.Domain.csproj",
+        "packagesPath": "C:\\Users\\savradev\\.nuget\\packages\\",
+        "outputPath": "C:\\OPAS\\src\\Opas.Domain\\obj\\",
+        "projectStyle": "PackageReference",
+        "configFilePaths": [
+          "C:\\OPAS\\NuGet.Config",
+          "C:\\Users\\savradev\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "net8.0"
+        ],
+        "sources": {
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net8.0": {
+            "targetAlias": "net8.0",
+            "projectReferences": {}
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        }
+      },
+      "frameworks": {
+        "net8.0": {
+          "targetAlias": "net8.0",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.414/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    },
     "C:\\OPAS\\src\\Opas.Infrastructure\\Opas.Infrastructure.csproj": {
       "version": "1.0.0",
       "restore": {
@@ -28,6 +88,9 @@
           "net8.0": {
             "targetAlias": "net8.0",
             "projectReferences": {
+              "C:\\OPAS\\src\\Opas.Domain\\Opas.Domain.csproj": {
+                "projectPath": "C:\\OPAS\\src\\Opas.Domain\\Opas.Domain.csproj"
+              },
               "C:\\OPAS\\src\\Opas.Shared\\Opas.Shared.csproj": {
                 "projectPath": "C:\\OPAS\\src\\Opas.Shared\\Opas.Shared.csproj"
               }
@@ -49,6 +112,10 @@
         "net8.0": {
           "targetAlias": "net8.0",
           "dependencies": {
+            "Microsoft.AspNetCore.Http.Abstractions": {
+              "target": "Package",
+              "version": "[2.3.0, )"
+            },
             "Microsoft.EntityFrameworkCore": {
               "target": "Package",
               "version": "[9.0.0, )"
@@ -61,7 +128,7 @@
             },
             "Microsoft.Extensions.Hosting.Abstractions": {
               "target": "Package",
-              "version": "[8.0.0, )"
+              "version": "[9.0.0, )"
             },
             "Microsoft.Extensions.Http": {
               "target": "Package",
@@ -70,6 +137,14 @@
             "Npgsql.EntityFrameworkCore.PostgreSQL": {
               "target": "Package",
               "version": "[9.0.0, )"
+            },
+            "Serilog": {
+              "target": "Package",
+              "version": "[4.3.0, )"
+            },
+            "Serilog.Sinks.File": {
+              "target": "Package",
+              "version": "[7.0.0, )"
             },
             "System.ServiceModel.Http": {
               "target": "Package",

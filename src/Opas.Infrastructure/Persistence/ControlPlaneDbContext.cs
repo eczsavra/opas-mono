@@ -1,6 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Opas.Shared.ControlPlane;
 using Opas.Shared.Auth;
+using Opas.Domain.Entities;
+using Opas.Domain.ValueObjects;
+using System.Text.Json;
 
 namespace Opas.Infrastructure.Persistence;
 
@@ -17,6 +20,8 @@ public sealed class ControlPlaneDbContext : DbContext
     public DbSet<User> Users => Set<User>(); // LEGACY - will be migrated to PharmacistAdmin
     public DbSet<PharmacistAdmin> PharmacistAdmins => Set<PharmacistAdmin>(); // NEW - main pharmacist accounts
     public DbSet<SubUser> SubUsers => Set<SubUser>(); // NEW - pharmacy employee accounts
+    public DbSet<LogEntry> LogEntries => Set<LogEntry>(); // NEW - application logs
+    public DbSet<CentralProduct> CentralProducts => Set<CentralProduct>(); // NEW - central products from ITS
 
 
     public ControlPlaneDbContext(DbContextOptions<ControlPlaneDbContext> options)
@@ -167,6 +172,84 @@ public sealed class ControlPlaneDbContext : DbContext
             e.Property(x => x.Status).HasColumnName("status").IsRequired().HasMaxLength(50);
             e.Property(x => x.CreatedAt).HasColumnName("created_at");
             e.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+        });
+
+        // LogEntry configuration
+        modelBuilder.Entity<LogEntry>(e =>
+        {
+            e.ToTable("log_entries");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasColumnName("id");
+            e.Property(x => x.Level).HasColumnName("level").HasMaxLength(50);
+            e.Property(x => x.Message).HasColumnName("message").HasMaxLength(2000);
+            e.Property(x => x.UserId).HasColumnName("user_id").HasMaxLength(50);
+            e.Property(x => x.TenantId).HasColumnName("tenant_id").HasMaxLength(50);
+            e.Property(x => x.CorrelationId).HasColumnName("correlation_id").HasMaxLength(100);
+            e.Property(x => x.ClientIP).HasColumnName("client_ip").HasMaxLength(45);
+            e.Property(x => x.UserAgent).HasColumnName("user_agent").HasMaxLength(500);
+            e.Property(x => x.RequestPath).HasColumnName("request_path").HasMaxLength(500);
+            e.Property(x => x.RequestMethod).HasColumnName("request_method").HasMaxLength(10);
+            e.Property(x => x.StatusCode).HasColumnName("status_code");
+            e.Property(x => x.DurationMs).HasColumnName("duration_ms");
+            e.Property(x => x.Exception).HasColumnName("exception").HasMaxLength(4000);
+            e.Property(x => x.Properties).HasColumnName("properties").HasMaxLength(4000);
+            e.Property(x => x.Timestamp).HasColumnName("timestamp");
+            
+            // Indexes for performance
+            e.HasIndex(x => x.Timestamp);
+            e.HasIndex(x => x.Level);
+            e.HasIndex(x => x.TenantId);
+            e.HasIndex(x => x.UserId);
+            e.HasIndex(x => x.CorrelationId);
+        });
+
+        // CentralProduct configuration
+        modelBuilder.Entity<CentralProduct>(e =>
+        {
+            e.ToTable("central_products");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasColumnName("id");
+            
+            // GTIN is unique globally
+            e.HasIndex(x => x.Gtin).IsUnique();
+            e.Property(x => x.Gtin).HasColumnName("gtin").HasMaxLength(50).IsRequired();
+            
+            // Drug info
+            e.Property(x => x.DrugName).HasColumnName("drug_name").HasMaxLength(500).IsRequired();
+            e.Property(x => x.ManufacturerGln).HasColumnName("manufacturer_gln").HasMaxLength(50);
+            e.Property(x => x.ManufacturerName).HasColumnName("manufacturer_name").HasMaxLength(500);
+            
+            // Price fields
+            e.Property(x => x.Price).HasColumnName("price").HasColumnType("numeric(18,4)");
+            e.Property(x => x.PriceHistory).HasColumnName("price_history").HasColumnType("jsonb")
+                .HasConversion(
+                    v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+                    v => JsonSerializer.Deserialize<List<PriceHistoryEntry>>(v, (JsonSerializerOptions?)null) ?? new List<PriceHistoryEntry>()
+                );
+            
+            // ITS fields
+            e.Property(x => x.IsActive).HasColumnName("is_active");
+            e.Property(x => x.IsImported).HasColumnName("is_imported");
+            e.Property(x => x.LastItsSyncAt).HasColumnName("last_its_sync_at");
+            e.Property(x => x.ItsRawData).HasColumnName("its_raw_data").HasColumnType("text");
+            
+            // User tracking fields
+            e.Property(x => x.CreatedBy).HasColumnName("created_by").HasMaxLength(100);
+            e.Property(x => x.UpdatedBy).HasColumnName("updated_by").HasMaxLength(100);
+            
+            // BaseEntity fields
+            e.Property(x => x.IsDeleted).HasColumnName("is_deleted");
+            e.Property(x => x.CreatedAtUtc).HasColumnName("created_at_utc");
+            e.Property(x => x.UpdatedAtUtc).HasColumnName("updated_at_utc");
+            
+            // Indexes for performance
+            e.HasIndex(x => x.DrugName);
+            e.HasIndex(x => x.IsActive);
+            e.HasIndex(x => x.LastItsSyncAt);
+            e.HasIndex(x => x.ManufacturerGln);
+            
+            // Soft delete filter
+            e.HasQueryFilter(x => !x.IsDeleted);
         });
     }
 

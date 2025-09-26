@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using MediatR;
 using FluentValidation;
 using Npgsql;
+using Serilog;
 
 using Opas.Application;                    // AssemblyMarker
 using Opas.Application.Diagnostics;
@@ -28,8 +29,17 @@ using Opas.Infrastructure.Services;
 
 // ✅ yeni: endpoint modül çağrısı için
 using Opas.Api.Endpoints;
+using Opas.Infrastructure.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Configure Serilog (Early initialization)
+Log.Logger = new LoggerConfiguration()
+    .ReadFrom.Configuration(builder.Configuration)
+    .CreateLogger();
+
+// Use Serilog for logging
+builder.Host.UseSerilog();
 
 // Localization (default: tr-TR)
 var defaultCulture = new CultureInfo("tr-TR");
@@ -158,6 +168,10 @@ if (app.Environment.IsDevelopment())
 
 
 
+// OPAS Logging Middleware
+app.UseMiddleware<GlobalExceptionMiddleware>();
+app.UseMiddleware<LoggingMiddleware>();
+
 app.MapCoreEndpoints();   
 app.MapInfraEndpoints();
 app.MapTenantEndpoints();   
@@ -170,10 +184,18 @@ app.MapControlGlnEndpoints();
 app.MapDiagnosticsEndpoints();
 app.MapInfraHealthEndpoints();
 app.MapControlTenantEndpoints();
-app.MapPublicProductsEndpoints();
 app.MapAuthRegistrationEndpoints();
+app.MapAuthRegistrationCompleteEndpoints();
 app.MapAuthLoginEndpoints(); // Added Login Endpoints
 app.MapAuthPasswordResetEndpoints(); // Added Password Reset Endpoints
+app.MapLogEndpoints(); // Added Ultimate Log Dashboard Endpoints
+app.MapCentralProductEndpoints(); // Added Central Product Management Endpoints
+app.MapItsProductSyncEndpoints(); // Added ITS Product Sync Endpoints
+app.MapTenantProductSyncEndpoints();
+app.MapTenantGlnSyncEndpoints(); // Added Tenant GLN Sync Endpoints (Central DB → Tenant DB)
+app.MapTenantProductEndpoints(); // Added Tenant Product Management Endpoints
+app.MapGlnRegistryEndpoints(); // Added GLN Registry Endpoints
+app.MapInfraItsTokenEndpoints(); // Added ITS Token Management Endpoints
 
 // --- GLN DRY-RUN PING ---
 // GET /control/gln/sync/dry-run

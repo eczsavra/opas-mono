@@ -85,6 +85,18 @@
               "target": "Package",
               "version": "[9.0.0, )"
             },
+            "Serilog": {
+              "target": "Package",
+              "version": "[4.3.0, )"
+            },
+            "Serilog.AspNetCore": {
+              "target": "Package",
+              "version": "[9.0.0, )"
+            },
+            "Serilog.Enrichers.CorrelationId": {
+              "target": "Package",
+              "version": "[3.0.1, )"
+            },
             "Swashbuckle.AspNetCore": {
               "target": "Package",
               "version": "[6.6.2, )"
@@ -275,6 +287,9 @@
           "net8.0": {
             "targetAlias": "net8.0",
             "projectReferences": {
+              "C:\\OPAS\\src\\Opas.Domain\\Opas.Domain.csproj": {
+                "projectPath": "C:\\OPAS\\src\\Opas.Domain\\Opas.Domain.csproj"
+              },
               "C:\\OPAS\\src\\Opas.Shared\\Opas.Shared.csproj": {
                 "projectPath": "C:\\OPAS\\src\\Opas.Shared\\Opas.Shared.csproj"
               }
@@ -296,6 +311,10 @@
         "net8.0": {
           "targetAlias": "net8.0",
           "dependencies": {
+            "Microsoft.AspNetCore.Http.Abstractions": {
+              "target": "Package",
+              "version": "[2.3.0, )"
+            },
             "Microsoft.EntityFrameworkCore": {
               "target": "Package",
               "version": "[9.0.0, )"
@@ -308,7 +327,7 @@
             },
             "Microsoft.Extensions.Hosting.Abstractions": {
               "target": "Package",
-              "version": "[8.0.0, )"
+              "version": "[9.0.0, )"
             },
             "Microsoft.Extensions.Http": {
               "target": "Package",
@@ -317,6 +336,14 @@
             "Npgsql.EntityFrameworkCore.PostgreSQL": {
               "target": "Package",
               "version": "[9.0.0, )"
+            },
+            "Serilog": {
+              "target": "Package",
+              "version": "[4.3.0, )"
+            },
+            "Serilog.Sinks.File": {
+              "target": "Package",
+              "version": "[7.0.0, )"
             },
             "System.ServiceModel.Http": {
               "target": "Package",

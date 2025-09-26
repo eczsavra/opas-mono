@@ -26,7 +26,7 @@ public class GlnRecord
     // ITS response: address
     public string? Address { get; set; }
 
-    // ITS response: active
+    // ITS response: active (True, False değerini almaktadır)
     public bool? Active { get; set; }
 
     // Source of the GLN record (e.g., "its-import", "manual")

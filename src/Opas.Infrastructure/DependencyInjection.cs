@@ -4,6 +4,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Opas.Infrastructure.Persistence;
 using Opas.Infrastructure.Persistence.Seed;
+using Opas.Infrastructure.Logging;
+using Opas.Infrastructure.ScheduledJobs;
+using Opas.Infrastructure.Services;
+using Opas.Shared.Logging;
 
 namespace Opas.Infrastructure;
 
@@ -21,9 +25,27 @@ public static class DependencyInjection
             services.AddDbContext<PublicDbContext>(o => o.UseNpgsql(cs));
             services.AddDbContext<TenantDbContext>(o => o.UseNpgsql(cs));
 
-            // Dev’de seed’i App start’ında tetiklemek için bir hosted service ekleyelim:
+            // Dev'de seed'i App start'ında tetiklemek için bir hosted service ekleyelim:
             services.AddHostedService(sp => new SeedHostedService(sp, env));
         }
+
+        // OPAS Logging System
+        services.AddScoped<IOpasLogger, OpasLogger>();
+        services.AddScoped<TenantLoggingService>();
+        services.AddScoped<ManagementLoggingService>();
+        services.AddScoped<DatabaseLoggingService>();
+
+        // ITS Integration Services
+        services.AddScoped<ItsTokenService>();
+        services.AddScoped<ItsProductService>();
+        services.AddScoped<CentralProductSyncService>(); // NEW - merkezi DB sync
+        services.AddScoped<ItsTenantSyncService>();
+        services.AddScoped<TenantProductSyncService>(); // NEW - merkezi DB'den tenant'lara sync
+        services.AddScoped<TenantGlnSyncService>(); // NEW - GLN sync servisi
+        services.AddScoped<TenantProvisioningService>();
+
+        // Scheduled Jobs
+        services.AddHostedService<ProductSyncScheduler>();
 
         return services;
     }

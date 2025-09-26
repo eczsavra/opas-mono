@@ -12,17 +12,7 @@ public static class PublicSeeder
         // DB bağlantısı varsa çalışır; yoksa DI'ya eklenmemiştir zaten.
         await db.Database.EnsureCreatedAsync();
 
-        if (await db.Products.AnyAsync()) return;
-
-        var items = new[]
-        {
-            new ProductRef { Gtin = "8690000000001", Name = "Paracetamol",  Form = "Tablet", Strength = "500 mg",  Manufacturer = "OPAS Ref", IsActive = true },
-            new ProductRef { Gtin = "8690000000002", Name = "Ibuprofen",    Form = "Tablet", Strength = "400 mg",  Manufacturer = "OPAS Ref", IsActive = true },
-            new ProductRef { Gtin = "8690000000003", Name = "Aspirin",      Form = "Tablet", Strength = "100 mg",  Manufacturer = "OPAS Ref", IsActive = true },
-            new ProductRef { Gtin = "8690000000004", Name = "Klorheksidin", Form = "Solüsyon", Strength = "0.2%", Manufacturer = "OPAS Ref", IsActive = true },
-        };
-
-        await db.Products.AddRangeAsync(items);
-        await db.SaveChangesAsync();
+        // Test veriler kaldırıldı - ITS'den gerçek ürün verisi gelecek
+        // Gelecekte: ITS Product Sync burada çalışacak
     }
 }

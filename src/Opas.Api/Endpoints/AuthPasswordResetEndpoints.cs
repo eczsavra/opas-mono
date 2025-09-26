@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Opas.Infrastructure.Persistence;
+using Opas.Infrastructure.Logging;
+using Opas.Shared.Logging;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -17,39 +19,86 @@ public static class AuthPasswordResetEndpoints
         // POST /api/auth/password/reset - Şifre sıfırlama (test için)
         group.MapPost("/reset", async (
             [FromBody] PasswordResetRequest request,
-            ControlPlaneDbContext db) =>
+            ControlPlaneDbContext db,
+            IOpasLogger opasLogger,
+            DatabaseLoggingService dbLogging,
+            TenantLoggingService tenantLogging,
+            ManagementLoggingService managementLogging,
+            HttpContext httpContext) =>
         {
-            if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.NewPassword))
-            {
-                return Results.BadRequest(new { success = false, error = "Kullanıcı adı ve yeni şifre gereklidir" });
-            }
-
-            // Kullanıcıyı bul
-            var pharmacist = await db.PharmacistAdmins
-                .Where(p => p.Username == request.Username.ToLowerInvariant())
-                .FirstOrDefaultAsync();
-
-            if (pharmacist == null)
-            {
-                return Results.Ok(new { success = false, error = "Kullanıcı bulunamadı" });
-            }
-
-            // Yeni şifre hash'le
-            var (hash, salt) = HashPassword(request.NewPassword);
+            var clientIP = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
             
-            // Şifreyi güncelle
-            pharmacist.PasswordHash = hash;
-            pharmacist.PasswordSalt = salt;
-            pharmacist.UpdatedAt = DateTime.UtcNow;
-
-            await db.SaveChangesAsync();
-
-            return Results.Ok(new
+            using (OpasLogContext.EnrichFromHttpContext(httpContext))
             {
-                success = true,
-                message = "Şifre başarıyla sıfırlandı",
-                username = pharmacist.Username
-            });
+                // Log password reset attempt
+                opasLogger.LogSystemEvent("PasswordResetAttempt", $"Password reset attempt for user {request.Username} from {clientIP}", new {
+                    Username = request.Username,
+                    IP = clientIP
+                });
+
+                if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.NewPassword))
+                {
+                    opasLogger.LogSystemEvent("PasswordResetValidationFailed", "Password reset validation failed - missing credentials", new {
+                        Username = request.Username,
+                        IP = clientIP
+                    });
+                    return Results.BadRequest(new { success = false, error = "Kullanıcı adı ve yeni şifre gereklidir" });
+                }
+
+                // Kullanıcıyı bul
+                var pharmacist = await db.PharmacistAdmins
+                    .Where(p => p.Username == request.Username.ToLowerInvariant())
+                    .FirstOrDefaultAsync();
+
+                if (pharmacist == null)
+                {
+                    opasLogger.LogSystemEvent("PasswordResetUserNotFound", $"Password reset failed - user not found: {request.Username}", new {
+                        Username = request.Username,
+                        IP = clientIP
+                    });
+                    return Results.Ok(new { success = false, error = "Kullanıcı bulunamadı" });
+                }
+
+                // Log password change attempt
+                opasLogger.LogPasswordChange(pharmacist.Username, clientIP, true, "Password reset initiated");
+
+                // Yeni şifre hash'le
+                var (hash, salt) = HashPassword(request.NewPassword);
+                
+                // Şifreyi güncelle
+                pharmacist.PasswordHash = hash;
+                pharmacist.PasswordSalt = salt;
+                pharmacist.UpdatedAt = DateTime.UtcNow;
+
+                await db.SaveChangesAsync();
+
+                // Log successful password reset
+                opasLogger.LogPasswordChange(pharmacist.Username, clientIP, true, "Password reset completed successfully");
+
+                // Log to management system
+                managementLogging.LogGlobalSecurity("PasswordReset", $"Password reset completed for user {pharmacist.Username}", new {
+                    Username = pharmacist.Username,
+                    PharmacistId = pharmacist.PharmacistId,
+                    TenantId = pharmacist.TenantId,
+                    IP = clientIP
+                });
+
+                // Log to tenant-specific logs
+                tenantLogging.LogTenantSecurity(pharmacist.TenantId, pharmacist.PharmacistId, "PasswordReset", clientIP, new {
+                    Username = pharmacist.Username,
+                    IP = clientIP
+                });
+
+                // Database'e log kaydet
+                await dbLogging.LogPasswordResetAsync(pharmacist.Username, pharmacist.TenantId, clientIP, true);
+
+                return Results.Ok(new
+                {
+                    success = true,
+                    message = "Şifre başarıyla sıfırlandı",
+                    username = pharmacist.Username
+                });
+            }
         })
         .WithName("ResetPassword")
         .WithSummary("Şifre sıfırlama (test için)")
