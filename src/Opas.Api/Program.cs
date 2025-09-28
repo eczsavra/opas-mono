@@ -189,13 +189,15 @@ app.MapAuthRegistrationCompleteEndpoints();
 app.MapAuthLoginEndpoints(); // Added Login Endpoints
 app.MapAuthPasswordResetEndpoints(); // Added Password Reset Endpoints
 app.MapLogEndpoints(); // Added Ultimate Log Dashboard Endpoints
-app.MapCentralProductEndpoints(); // Added Central Product Management Endpoints
+app.MapCentralProductEndpoints();
+app.MapSuperAdminAnalyticsEndpoints(); // Added Central Product Management Endpoints
 app.MapItsProductSyncEndpoints(); // Added ITS Product Sync Endpoints
 app.MapTenantProductSyncEndpoints();
 app.MapTenantGlnSyncEndpoints(); // Added Tenant GLN Sync Endpoints (Central DB → Tenant DB)
 app.MapTenantProductEndpoints(); // Added Tenant Product Management Endpoints
 app.MapGlnRegistryEndpoints(); // Added GLN Registry Endpoints
 app.MapInfraItsTokenEndpoints(); // Added ITS Token Management Endpoints
+app.MapSuperAdminEndpoints(); // Added SuperAdmin Authentication Endpoints
 
 // --- GLN DRY-RUN PING ---
 // GET /control/gln/sync/dry-run

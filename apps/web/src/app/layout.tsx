@@ -1,4 +1,5 @@
 import { ThemeProvider } from '../providers/ThemeProvider'
+import { AuthProvider } from '../contexts/AuthContext'
 import { defaultLocale } from '../i18n/config'
 import { Montserrat } from 'next/font/google'
 
@@ -17,7 +18,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang={defaultLocale}>
       <body className={montserrat.variable}>
         <ThemeProvider>
-          {children}
+          <AuthProvider>
+            {children}
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

@@ -122,7 +122,7 @@ public static class TenantProductSyncEndpoints
         .WithDescription("Merkezi 'central_products' tablosundan tüm aktif tenant DB'lerine ürün sync eder.");
 
         // GET /api/tenant/products/sync/status/{tenantId} - Tenant sync durumu
-        group.MapGet("/status/{tenantId}", async (
+        group.MapGet("/status/{tenantId}", (
             string tenantId,
             TenantProductSyncService syncService,
             IOpasLogger opasLogger,

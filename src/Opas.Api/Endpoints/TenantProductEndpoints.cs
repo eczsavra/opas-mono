@@ -52,9 +52,9 @@ public static class TenantProductEndpoints
                     if (!string.IsNullOrEmpty(search))
                     {
                         query = query.Where(p => 
-                            EF.Functions.ILike(p.DrugName, $"%{search}%") ||
-                            EF.Functions.ILike(p.Gtin, $"%{search}%") ||
-                            EF.Functions.ILike(p.ManufacturerName, $"%{search}%"));
+                            (p.DrugName != null && EF.Functions.ILike(p.DrugName, $"%{search}%")) ||
+                            (p.Gtin != null && EF.Functions.ILike(p.Gtin, $"%{search}%")) ||
+                            (p.ManufacturerName != null && EF.Functions.ILike(p.ManufacturerName, $"%{search}%")));
                     }
 
                     // Aktif/pasif filtresi

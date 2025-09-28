@@ -133,7 +133,7 @@ public static class TenantGlnSyncEndpoints
         .WithDescription("Sync all GLNs from central database to all tenant databases");
 
         // GLN sync status/stats
-        group.MapGet("/status", async (
+        group.MapGet("/status", (
             [FromServices] TenantGlnSyncService syncService,
             HttpContext httpContext) =>
         {

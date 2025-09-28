@@ -22,6 +22,7 @@ public sealed class ControlPlaneDbContext : DbContext
     public DbSet<SubUser> SubUsers => Set<SubUser>(); // NEW - pharmacy employee accounts
     public DbSet<LogEntry> LogEntries => Set<LogEntry>(); // NEW - application logs
     public DbSet<CentralProduct> CentralProducts => Set<CentralProduct>(); // NEW - central products from ITS
+    public DbSet<SuperAdmin> SuperAdmins => Set<SuperAdmin>(); // NEW - system administrators
 
 
     public ControlPlaneDbContext(DbContextOptions<ControlPlaneDbContext> options)
@@ -250,6 +251,47 @@ public sealed class ControlPlaneDbContext : DbContext
             
             // Soft delete filter
             e.HasQueryFilter(x => !x.IsDeleted);
+        });
+
+        // SuperAdmin configuration
+        modelBuilder.Entity<SuperAdmin>(e =>
+        {
+            e.ToTable("super_admins");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasColumnName("id");
+
+            // Unique constraints
+            e.HasIndex(x => x.Username).IsUnique();
+            e.HasIndex(x => x.Email).IsUnique();
+
+            // Basic info
+            e.Property(x => x.Username).HasColumnName("username").HasMaxLength(100).IsRequired();
+            e.Property(x => x.Email).HasColumnName("email").HasMaxLength(200).IsRequired();
+            e.Property(x => x.PasswordHash).HasColumnName("password_hash").HasMaxLength(500).IsRequired();
+            e.Property(x => x.PasswordSalt).HasColumnName("password_salt").HasMaxLength(500).IsRequired();
+
+            // Personal info
+            e.Property(x => x.FirstName).HasColumnName("first_name").HasMaxLength(100).IsRequired();
+            e.Property(x => x.LastName).HasColumnName("last_name").HasMaxLength(100).IsRequired();
+            e.Property(x => x.Phone).HasColumnName("phone").HasMaxLength(20);
+
+            // Permissions & status
+            e.Property(x => x.Permissions).HasColumnName("permissions").HasColumnType("text").IsRequired();
+            e.Property(x => x.IsActive).HasColumnName("is_active").IsRequired();
+            e.Property(x => x.IsEmailVerified).HasColumnName("is_email_verified").IsRequired();
+
+            // Audit fields
+            e.Property(x => x.LastLoginAt).HasColumnName("last_login_at");
+            e.Property(x => x.LastLoginIp).HasColumnName("last_login_ip").HasMaxLength(50);
+            e.Property(x => x.CreatedAt).HasColumnName("created_at").IsRequired();
+            e.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            e.Property(x => x.CreatedBy).HasColumnName("created_by").HasMaxLength(100);
+            e.Property(x => x.UpdatedBy).HasColumnName("updated_by").HasMaxLength(100);
+
+            // Indexes for performance
+            e.HasIndex(x => x.IsActive);
+            e.HasIndex(x => x.CreatedAt);
+            e.HasIndex(x => x.LastLoginAt);
         });
     }
 

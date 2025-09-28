@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
 import {
   Box,
   Typography,
@@ -11,7 +12,6 @@ import {
   Chip,
   IconButton,
   InputAdornment,
-  Pagination,
   Alert,
   Dialog,
   DialogTitle,
@@ -21,7 +21,19 @@ import {
   Switch,
   Skeleton,
   Fab,
-  Tooltip
+  CircularProgress,
+  Tooltip,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  ToggleButton,
+  ToggleButtonGroup,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -31,43 +43,43 @@ import {
   Add as AddIcon,
   LocalPharmacy as PharmacyIcon,
   Business as BusinessIcon,
+  AccountBalance as CentralIcon,
   AttachMoney as MoneyIcon,
   Schedule as ScheduleIcon,
   Home as HomeIcon,
-  ArrowBack as ArrowBackIcon
+  ArrowBack as ArrowBackIcon,
+  ViewModule as CardViewIcon,
+  ViewList as ListViewIcon,
+  ExpandMore as ExpandMoreIcon,
 } from '@mui/icons-material';
 
 interface Product {
   id: string;
   gtin: string;
   drugName: string;
-  manufacturerName: string;
-  manufacturerGln: string;
+  manufacturerName?: string;
+  manufacturerGln?: string;
   price: number;
   isActive: boolean;
-  lastItsSyncAt: string;
-  createdAt: string;
-  updatedAt: string;
+  isImported: boolean;
+  lastItsSyncAt?: string;
+  createdAtUtc: string;
+  updatedAtUtc?: string;
 }
 
 interface ProductListResponse {
+  success: boolean;
   data: Product[];
-  pagination: {
-    page: number;
-    pageSize: number;
-    totalCount: number;
-    totalPages: number;
-    hasNext: boolean;
-    hasPrevious: boolean;
-  };
-  filters: {
-    search?: string;
-    isActive?: boolean;
+  meta: {
+    offset: number;
+    limit: number;
+    totalItems: number;
+    hasMore: boolean;
   };
 }
 
 export default function ProductsPage() {
-  const [products, setProducts] = useState<Product[]>([]);
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -75,64 +87,310 @@ export default function ProductsPage() {
   
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeOnly, setActiveOnly] = useState<boolean | null>(null);
-  const [page, setPage] = useState(1);
-  const [pageSize] = useState(20);
-  const [pagination, setPagination] = useState({
-    totalCount: 0,
-    totalPages: 0,
-    hasNext: false,
-    hasPrevious: false
-  });
+  const [activeOnly, setActiveOnly] = useState<boolean | null>(true); // Default: sadece aktif ürünler
+  
+  // View mode
+  const [viewMode, setViewMode] = useState<'card' | 'list'>('list'); // Default: liste görünümü
+  
+  // Accordion state
+  const [expandedAccordion, setExpandedAccordion] = useState<string | false>(false);
+  
+          // Letter-based accordion state
+          const [letterProducts, setLetterProducts] = useState<{ [letter: string]: Product[] }>({});
+          const [letterLoading, setLetterLoading] = useState<{ [letter: string]: boolean }>({});
+          const [letterCounts, setLetterCounts] = useState<{ [letter: string]: { active: number, passive: number } }>({});
+          
+          // Pagination per letter
+          const [letterPagination, setLetterPagination] = useState<{ [letter: string]: { offset: number, limit: number, hasMore: boolean } }>({});
+  
+  // Infinite scroll state (legacy - will be removed)
+  const [loadedProducts, setLoadedProducts] = useState<Product[]>([]);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const loadedProductsRef = useRef<Product[]>([]);
 
-  const fetchProducts = useCallback(async () => {
-    setLoading(true);
+  const fetchProductsRef = useRef<(() => Promise<void>) | null>(null);
+
+          // Tüm harfleri oluştur (A-Z, 0-9, özel karakterler)
+          const getAllLetters = () => {
+            const letters = [];
+            
+            // A-Z harfleri
+            for (let i = 65; i <= 90; i++) {
+              letters.push(String.fromCharCode(i));
+            }
+            
+            // 0-9 rakamları (tek grup)
+            letters.push('0-9');
+            
+            // Özel karakterler (tek grup)
+            letters.push('Özel Karakterler');
+            
+            return letters;
+          };
+
+          // Letter counts fonksiyonu geçici olarak kaldırıldı - backend sorunu
+          // const fetchLetterCounts = ...
+
+  // Belirli bir harfle başlayan ürünleri yükle (pagination ile)
+  const fetchProductsByLetter = useCallback(async (letter: string, loadMore = false) => {
+    if (!user) return;
+    
+    // Loading state'i güncelle
+    setLetterLoading(prev => ({ ...prev, [letter]: true }));
+    
+    try {
+      // Pagination bilgilerini al
+      const currentPagination = letterPagination[letter] || { offset: 0, limit: 50, hasMore: true };
+      const offset = loadMore ? currentPagination.offset + currentPagination.limit : 0;
+      const limit = 50;
+      
+      const params = new URLSearchParams({
+        ...(searchTerm && { search: searchTerm }),
+        ...(activeOnly !== null && { isActive: activeOnly.toString() }),
+        letterFilter: letter, // Backend'e harf filtresi gönder
+        offset: offset.toString(),
+        limit: limit.toString()
+      });
+
+      const apiEndpoint = user.role === 'superadmin' 
+          ? `/api/opas/central/products?${params}`
+          : `/api/opas/products?${params}`;
+      
+      const response = await fetch(apiEndpoint);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch products: ${response.status}`);
+      }
+
+      const result: ProductListResponse = await response.json();
+      
+      if (!result || !result.data || !result.meta) {
+        throw new Error('Invalid response format from server');
+      }
+      
+      // Backend'de zaten filtrelenmiş ürünler geliyor
+      const newProducts = result.data;
+      
+      if (loadMore) {
+        // Mevcut ürünlere ekle
+        setLetterProducts(prev => ({
+          ...prev,
+          [letter]: [...(prev[letter] || []), ...newProducts]
+        }));
+      } else {
+        // Yeni ürünlerle değiştir
+        setLetterProducts(prev => ({
+          ...prev,
+          [letter]: newProducts
+        }));
+      }
+      
+      // Pagination state'ini güncelle
+      setLetterPagination(prev => ({
+        ...prev,
+        [letter]: {
+          offset: offset,
+          limit: limit,
+          hasMore: result.meta.hasMore
+        }
+      }));
+      
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error occurred');
+    } finally {
+      setLetterLoading(prev => ({ ...prev, [letter]: false }));
+    }
+  }, [user, searchTerm, activeOnly, letterPagination]);
+
+
+  const fetchProducts = useCallback(async (loadMore = false) => {
+    if (!user) {
+      console.log('⚠️ User not loaded yet, skipping fetch');
+      return;
+    }
+    
+    if (loadMore) {
+      setLoadingMore(true);
+    } else {
+      setLoading(true);
+      setLoadedProducts([]);
+      loadedProductsRef.current = [];
+      setHasMore(true);
+    }
     setError(null);
     
     try {
+      // loadMore için current count'u ref ile al
+      const currentCount = loadMore ? loadedProductsRef.current.length : 0;
       const params = new URLSearchParams({
-        page: page.toString(),
-        pageSize: pageSize.toString(),
+        offset: currentCount.toString(),
+        limit: '50', // 50'şer yükle
         ...(searchTerm && { search: searchTerm }),
         ...(activeOnly !== null && { isActive: activeOnly.toString() })
       });
 
-      const response = await fetch(`/api/opas/products?${params}`);
+      // SuperAdmin için central products, tenant için tenant products
+      const apiEndpoint = user.role === 'superadmin' 
+          ? `/api/opas/central/products?${params}`
+          : `/api/opas/products?${params}`;
+      
+      console.log('🔍 Fetching products:', { 
+        user: user.username,
+        role: user.role, 
+        apiEndpoint, 
+        params: params.toString(),
+        searchTerm: searchTerm,
+        loadMore,
+        currentCount
+      });
+      
+      const response = await fetch(apiEndpoint);
+      
+      console.log('📡 Response status:', response.status);
       
       if (!response.ok) {
-        throw new Error('Failed to fetch products');
+        const errorText = await response.text();
+        console.error('❌ API Error:', { 
+          status: response.status, 
+          statusText: response.statusText, 
+          body: errorText 
+        });
+        throw new Error(`Failed to fetch products: ${response.status} ${response.statusText}`);
       }
 
       const result: ProductListResponse = await response.json();
-      setProducts(result.data);
-      setPagination(result.pagination);
+      
+      // Response validation
+      if (!result || !result.data || !result.meta) {
+        throw new Error('Invalid response format from server');
+      }
+      
+      if (loadMore) {
+        const newProducts = [...loadedProductsRef.current, ...result.data];
+        setLoadedProducts(newProducts);
+        loadedProductsRef.current = newProducts;
+      } else {
+        setLoadedProducts(result.data);
+        loadedProductsRef.current = result.data;
+      }
+      
+      // Backend'den gelen hasMore bilgisini kullan
+      setHasMore(result.meta.hasMore);
+      
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error occurred');
     } finally {
-      setLoading(false);
+      if (loadMore) {
+        setLoadingMore(false);
+      } else {
+        setLoading(false);
+      }
     }
-  }, [page, pageSize, searchTerm, activeOnly]);
+  }, [user, searchTerm, activeOnly]); // loadedProducts.length'i kaldırdık
 
+          useEffect(() => {
+            console.log('🔍 useEffect triggered, calling fetchProducts');
+            fetchProducts();
+          }, [fetchProducts]);
+
+  // fetchProducts'ı ref'e kaydet - her fetchProducts değiştiğinde
   useEffect(() => {
-    fetchProducts();
+    console.log('🔍 Updating fetchProductsRef.current');
+    fetchProductsRef.current = fetchProducts;
   }, [fetchProducts]);
 
-  const handleSearch = () => {
-    setPage(1);
-    fetchProducts();
-  };
+  // Debounced search - searchTerm değiştiğinde 500ms sonra arama yap
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (fetchProductsRef.current && user) {
+        console.log('🔍 Debounced search triggered for:', searchTerm);
+        fetchProductsRef.current();
+      }
+    }, 500);
 
-  const handleRefresh = () => {
-    fetchProducts();
-  };
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm, user]);
+
+  // Component mount olduğunda log
+  useEffect(() => {
+    console.log('🔍 Products page mounted');
+    console.log('🔍 User:', user);
+    console.log('🔍 handleSearch function:', typeof handleSearch);
+  }, []);
+
+  // User değiştiğinde log
+  useEffect(() => {
+    console.log('🔍 User changed:', user);
+    if (user) {
+      console.log('🔍 User loaded, handleSearch should work now');
+    }
+  }, [user]);
+
+  const handleSearch = useCallback(() => {
+    console.log('🔍 handleSearch called');
+    console.log('🔍 User:', user);
+    
+    if (!user) {
+      console.log('❌ User not loaded, cannot search');
+      return;
+    }
+    
+    // Yeni arama için ürünleri sıfırla
+    fetchProducts(false);
+  }, [user, fetchProducts]);
+
+  const handleRefresh = useCallback(() => {
+    fetchProducts(false);
+  }, [fetchProducts]);
 
   const handleProductDetail = (product: Product) => {
     setSelectedProduct(product);
     setDetailDialogOpen(true);
   };
 
-  const handlePageChange = (event: React.ChangeEvent<unknown>, newPage: number) => {
-    setPage(newPage);
+  const loadMoreProducts = useCallback(() => {
+    if (hasMore && !loadingMore) {
+      fetchProducts(true);
+    }
+  }, [hasMore, loadingMore, fetchProducts]);
+
+  // Scroll detection için Intersection Observer
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (observerRef.current) {
+      observerRef.current.disconnect();
+    }
+
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore) {
+          loadMoreProducts();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (loadMoreRef.current) {
+      observerRef.current.observe(loadMoreRef.current);
+    }
+
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+      }
+    };
+  }, [hasMore, loadingMore, loadMoreProducts]);
+
+  const handleAccordionChange = (panel: string) => (event: React.SyntheticEvent, isExpanded: boolean) => {
+    setExpandedAccordion(isExpanded ? panel : false);
+    
+    // Accordion açıldığında o harfle başlayan ürünleri yükle
+    if (isExpanded && (!letterProducts[panel] || letterProducts[panel].length === 0)) {
+      fetchProductsByLetter(panel);
+    }
   };
 
   const formatPrice = (price: number) => {
@@ -142,7 +400,8 @@ export default function ProductsPage() {
     }).format(price);
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleString('tr-TR');
   };
 
@@ -170,13 +429,17 @@ export default function ProductsPage() {
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <PharmacyIcon sx={{ fontSize: 32, color: 'primary.main' }} />
+            {user?.role === 'superadmin' ? (
+              <CentralIcon sx={{ fontSize: 32, color: 'error.main' }} />
+            ) : (
+              <PharmacyIcon sx={{ fontSize: 32, color: 'primary.main' }} />
+            )}
             <Typography variant="h4" component="h1" fontWeight={600}>
-              Ürün Listesi
+              {user?.role === 'superadmin' ? 'Merkezi Ürün Listesi' : 'Ürün Listesi'}
             </Typography>
           </Box>
           <Chip 
-            label={`${pagination.totalCount} Ürün`}
+            label={`${loadedProducts.length} Ürün`}
             color="primary"
             variant="outlined"
             size="medium"
@@ -194,8 +457,19 @@ export default function ProductsPage() {
                 variant="outlined"
                 placeholder="Ürün adı, GTIN veya üretici ara..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                onChange={(e) => {
+                  console.log('🔍 Search term changed to:', e.target.value);
+                  setSearchTerm(e.target.value);
+                }}
+                onFocus={() => console.log('🔍 Search input focused')}
+                onBlur={() => console.log('🔍 Search input blurred')}
+                onKeyDown={(e) => {
+                  console.log('🔍 Key pressed:', e.key);
+                  if (e.key === 'Enter') {
+                    console.log('🔍 Enter pressed, calling handleSearch');
+                    handleSearch();
+                  }
+                }}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -204,7 +478,11 @@ export default function ProductsPage() {
                   ),
                   endAdornment: (
                     <InputAdornment position="end">
-                      <IconButton onClick={handleSearch} color="primary">
+                      <IconButton onClick={() => {
+                        console.log('🔍 Search button clicked');
+                        console.log('🔍 handleSearch function:', typeof handleSearch);
+                        handleSearch();
+                      }} color="primary">
                         <SearchIcon />
                       </IconButton>
                     </InputAdornment>
@@ -241,9 +519,38 @@ export default function ProductsPage() {
                 Yenile
               </Button>
             </Box>
+            
+            {/* View Mode Toggle */}
+            <Box sx={{ flex: '0 0 auto' }}>
+              <ToggleButtonGroup
+                value={viewMode}
+                exclusive
+                onChange={(event, newViewMode) => {
+                  if (newViewMode) {
+                    setViewMode(newViewMode);
+                  }
+                }}
+                aria-label="view mode"
+                size="small"
+                sx={{ borderRadius: 2 }}
+              >
+                <ToggleButton value="card" aria-label="card view">
+                  <Tooltip title="Kart Görünümü">
+                    <CardViewIcon />
+                  </Tooltip>
+                </ToggleButton>
+                <ToggleButton value="list" aria-label="list view">
+                  <Tooltip title="Liste Görünümü">
+                    <ListViewIcon />
+                  </Tooltip>
+                </ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
           </Box>
         </CardContent>
       </Card>
+
+
 
       {/* Error State */}
       {error && (
@@ -274,9 +581,12 @@ export default function ProductsPage() {
       )}
 
       {/* Product List */}
-      {!loading && products.length > 0 && (
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' }, gap: 3 }}>
-          {products.map((product) => (
+      {!loading && loadedProducts.length > 0 && (
+        <>
+          {/* Card View */}
+          {viewMode === 'card' && (
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' }, gap: 3 }}>
+          {loadedProducts.map((product) => (
             <Box key={product.id}>
               <Card 
                 sx={{ 
@@ -363,10 +673,194 @@ export default function ProductsPage() {
             </Box>
           ))}
         </Box>
+          )}
+
+                  {/* Accordion View */}
+                  {viewMode === 'list' && (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                      {getAllLetters().map((letter) => {
+                        const products = letterProducts[letter] || [];
+                        const counts = letterCounts[letter] || { active: 0, passive: 0 };
+                        
+                        return (
+                <Accordion 
+                  key={letter}
+                  expanded={expandedAccordion === letter}
+                  onChange={handleAccordionChange(letter)}
+                  sx={{ 
+                    borderRadius: 2,
+                    '&:before': { display: 'none' },
+                    boxShadow: 1,
+                    '&:hover': { boxShadow: 2 }
+                  }}
+                >
+                  <AccordionSummary
+                    expandIcon={<ExpandMoreIcon />}
+                    sx={{
+                      bgcolor: 'grey.50',
+                      borderRadius: 2,
+                      '&.Mui-expanded': {
+                        borderRadius: '8px 8px 0 0'
+                      }
+                    }}
+                  >
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                              <Typography variant="h6" fontWeight={600} color="primary">
+                                {letter === '0-9' ? 'Rakamlar (0-9)' : 
+                                 letter === 'Özel Karakterler' ? 'Özel Karakterler' : 
+                                 letter}
+                              </Typography>
+                              {(counts.active > 0 || counts.passive > 0) && (
+                                <Box sx={{ display: 'flex', gap: 1 }}>
+                                  {counts.active > 0 && (
+                                    <Chip 
+                                      label={`${counts.active} aktif`}
+                                      size="small"
+                                      color="success"
+                                      variant="outlined"
+                                    />
+                                  )}
+                                  {counts.passive > 0 && (
+                                    <Chip 
+                                      label={`${counts.passive} pasif`}
+                                      size="small"
+                                      color="default"
+                                      variant="outlined"
+                                    />
+                                  )}
+                                </Box>
+                              )}
+                              {letterLoading[letter] && (
+                                <CircularProgress size={16} />
+                              )}
+                            </Box>
+                  </AccordionSummary>
+                  <AccordionDetails sx={{ p: 0 }}>
+                    <TableContainer>
+                      <Table size="small">
+                        <TableHead>
+                          <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, bgcolor: 'grey.100' } }}>
+                            <TableCell>Ürün Adı</TableCell>
+                            <TableCell>GTIN</TableCell>
+                            <TableCell>Üretici</TableCell>
+                            <TableCell align="right">Fiyat</TableCell>
+                            <TableCell align="center">Durum</TableCell>
+                            <TableCell>Son Güncellenme</TableCell>
+                            <TableCell align="center">İşlemler</TableCell>
+                          </TableRow>
+                        </TableHead>
+                                <TableBody>
+                                  {products.map((product) => (
+                            <TableRow 
+                              key={product.id}
+                              sx={{ 
+                                '&:hover': { 
+                                  bgcolor: 'action.hover',
+                                  cursor: 'pointer'
+                                },
+                                '&:last-child td, &:last-child th': { border: 0 }
+                              }}
+                              onClick={() => handleProductDetail(product)}
+                            >
+                              <TableCell>
+                                <Typography variant="body2" fontWeight={500} color="primary.main">
+                                  {product.drugName}
+                                </Typography>
+                              </TableCell>
+                              <TableCell>
+                                <Typography variant="body2" color="text.secondary" fontFamily="monospace">
+                                  {product.gtin}
+                                </Typography>
+                              </TableCell>
+                              <TableCell>
+                                <Typography variant="body2" color="text.secondary">
+                                  {product.manufacturerName || 'Bilinmiyor'}
+                                </Typography>
+                              </TableCell>
+                              <TableCell align="right">
+                                <Chip
+                                  size="small"
+                                  label={`₺${product.price.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}`}
+                                  color="primary"
+                                  variant="outlined"
+                                  sx={{ fontWeight: 'bold', minWidth: 80 }}
+                                />
+                              </TableCell>
+                              <TableCell align="center">
+                                <Chip
+                                  size="small"
+                                  label={product.isActive ? 'Aktif' : 'Pasif'}
+                                  color={product.isActive ? 'success' : 'default'}
+                                  variant="outlined"
+                                />
+                              </TableCell>
+                              <TableCell>
+                                {product.lastItsSyncAt ? (
+                                  <Typography variant="caption" color="text.secondary">
+                                    {new Date(product.lastItsSyncAt).toLocaleDateString('tr-TR')}
+                                  </Typography>
+                                ) : (
+                                  <Typography variant="caption" color="text.disabled">
+                                    Bilinmiyor
+                                  </Typography>
+                                )}
+                              </TableCell>
+                              <TableCell align="center">
+                                <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
+                                  <IconButton 
+                                    size="small" 
+                                    color="primary"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleProductDetail(product);
+                                    }}
+                                  >
+                                    <VisibilityIcon fontSize="small" />
+                                  </IconButton>
+                                  <IconButton 
+                                    size="small" 
+                                    color="secondary"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      // Edit handler burada olacak
+                                    }}
+                                  >
+                                    <EditIcon fontSize="small" />
+                                  </IconButton>
+                                </Box>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                        </TableContainer>
+                        
+                        {/* Daha Fazla Butonu */}
+                        {letterPagination[letter]?.hasMore && (
+                          <Box sx={{ p: 2, textAlign: 'center', borderTop: '1px solid', borderColor: 'divider' }}>
+                            <Button
+                              variant="outlined"
+                              onClick={() => fetchProductsByLetter(letter, true)}
+                              disabled={letterLoading[letter]}
+                              startIcon={letterLoading[letter] ? <CircularProgress size={16} /> : null}
+                              sx={{ borderRadius: 2 }}
+                            >
+                              {letterLoading[letter] ? 'Yükleniyor...' : 'Daha Fazla Yükle'}
+                            </Button>
+                          </Box>
+                        )}
+                        
+                      </AccordionDetails>
+                    </Accordion>
+                        );
+                      })}
+                    </Box>
+                  )}
+        </>
       )}
 
       {/* Empty State */}
-      {!loading && products.length === 0 && (
+      {!loading && loadedProducts.length === 0 && (
         <Box sx={{ textAlign: 'center', py: 8 }}>
           <PharmacyIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
           <Typography variant="h5" color="text.secondary" gutterBottom>
@@ -385,25 +879,6 @@ export default function ProductsPage() {
         </Box>
       )}
 
-      {/* Pagination */}
-      {!loading && products.length > 0 && (
-        <Box sx={{ mt: 4, display: 'flex', justifyContent: 'center' }}>
-          <Pagination
-            count={pagination.totalPages}
-            page={page}
-            onChange={handlePageChange}
-            color="primary"
-            size="large"
-            showFirstButton
-            showLastButton
-            sx={{
-              '& .MuiPaginationItem-root': {
-                borderRadius: 2,
-              }
-            }}
-          />
-        </Box>
-      )}
 
       {/* Floating Action Button */}
       <Fab

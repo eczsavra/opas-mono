@@ -43,6 +43,9 @@ public static class DependencyInjection
         services.AddScoped<TenantProductSyncService>(); // NEW - merkezi DB'den tenant'lara sync
         services.AddScoped<TenantGlnSyncService>(); // NEW - GLN sync servisi
         services.AddScoped<TenantProvisioningService>();
+        
+        // SuperAdmin Services
+        services.AddScoped<SuperAdminAuthService>(); // NEW - SuperAdmin authentication
 
         // Scheduled Jobs
         services.AddHostedService<ProductSyncScheduler>();
