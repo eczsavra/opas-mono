@@ -51,9 +51,9 @@ public static class AuthPharmacistRegistrationEndpoints
                     }
 
                     // Check if GLN already registered
-                    var existingByGln = await controlDb.PharmacistAdmins
+                    var existingByGln = await controlDb.Tenants
                         .AsNoTracking()
-                        .AnyAsync(x => x.PersonalGln == dto.PersonalGln, ct);
+                        .AnyAsync(x => x.Gln == dto.PersonalGln, ct);
                         
                     if (existingByGln)
                     {
@@ -62,7 +62,7 @@ public static class AuthPharmacistRegistrationEndpoints
                     }
 
                     // Check if username already taken
-                    var existingByUsername = await controlDb.PharmacistAdmins
+                    var existingByUsername = await controlDb.TenantsUsernames
                         .AsNoTracking()
                         .AnyAsync(x => x.Username == dto.Username.ToLowerInvariant(), ct);
                         
@@ -73,7 +73,7 @@ public static class AuthPharmacistRegistrationEndpoints
                     }
 
                     // Check if email already used
-                    var existingByEmail = await controlDb.PharmacistAdmins
+                    var existingByEmail = await controlDb.Tenants
                         .AsNoTracking()
                         .AnyAsync(x => x.Email == dto.Email.ToLowerInvariant(), ct);
                         
@@ -84,55 +84,59 @@ public static class AuthPharmacistRegistrationEndpoints
                     }
 
                     // Generate Smart IDs (unique across all types)
-                    string pharmacistId;
-                    do
-                    {
-                        pharmacistId = SmartIdGenerator.GeneratePharmacistId();
-                    } while (await controlDb.PharmacistAdmins.AnyAsync(x => x.PharmacistId == pharmacistId, ct) ||
-                             await controlDb.SubUsers.AnyAsync(x => x.SubUserId == pharmacistId, ct));
-
                     string tenantId;
                     do
                     {
                         tenantId = SmartIdGenerator.GenerateTenantId();
-                    } while (await controlDb.PharmacistAdmins.AnyAsync(x => x.TenantId == tenantId, ct));
+                    } while (await controlDb.Tenants.AnyAsync(x => x.TId == tenantId, ct));
 
                     // Log ID generation
-                    opasLogger.LogSystemEvent("RegistrationIDGeneration", $"Generated IDs for new pharmacist", new { 
-                        PharmacistId = pharmacistId, 
+                    opasLogger.LogSystemEvent("RegistrationIDGeneration", $"Generated IDs for new tenant", new { 
                         TenantId = tenantId 
                     });
 
                     // Hash password
                     var (hashedPassword, salt) = HashPassword(dto.Password);
 
-                // Create PharmacistAdmin record
-                var pharmacist = new PharmacistAdmin
+                // Create Tenant record
+                var tenant = new Tenant
                 {
-                    PharmacistId = pharmacistId, // Smart ID
-                    Username = dto.Username.ToLowerInvariant(),
-                    PasswordHash = hashedPassword,
-                    PasswordSalt = salt,
-                    Email = dto.Email.ToLowerInvariant(),
-                    Phone = dto.Phone,
-                    PersonalGln = dto.PersonalGln,
-                    TenantId = tenantId,
-                    FirstName = dto.FirstName,
-                    LastName = dto.LastName,
-                    TcNumber = dto.TcNumber,
-                    BirthYear = dto.BirthYear,
-                    PharmacyRegistrationNo = dto.PharmacyRegistrationNo,
-                    IsEmailVerified = dto.IsEmailVerified,
-                    IsPhoneVerified = dto.IsPhoneVerified,
+                    TId = tenantId,
+                    Gln = dto.PersonalGln,
+                    Type = "eczane",
+                    EczaneAdi = null, // Will be filled from GLN registry if available
+                    Ili = null, // Will be filled from GLN registry if available
+                    Ilcesi = null, // Will be filled from GLN registry if available
+                    IsActive = true,
+                    Ad = dto.FirstName,
+                    Soyad = dto.LastName,
+                    TcNo = dto.TcNumber,
+                    DogumYili = dto.BirthYear,
                     IsNviVerified = dto.IsNviVerified,
-                    TenantStatus = "Pending", // C Approach: Staged Provisioning
-                    Role = "PharmacyAdmin"
+                    Email = dto.Email.ToLowerInvariant(),
+                    IsEmailVerified = dto.IsEmailVerified,
+                    CepTel = dto.Phone,
+                    IsCepTelVerified = dto.IsPhoneVerified,
+                    Username = dto.Username.ToLowerInvariant(),
+                    Password = hashedPassword, // Store hashed password directly
+                    IsCompleted = false,
+                    KayitOlusturulmaZamani = DateTime.UtcNow,
+                    KayitGuncellenmeZamani = null,
+                    KayitSilinmeZamani = null
                 };
 
-                controlDb.PharmacistAdmins.Add(pharmacist);
+                controlDb.Tenants.Add(tenant);
+                
+                // Add to tenants_usernames for unique username control
+                var tenantUsername = new TenantUsername
+                {
+                    TId = tenantId,
+                    Username = dto.Username.ToLowerInvariant()
+                };
+                
+                controlDb.TenantsUsernames.Add(tenantUsername);
                 await controlDb.SaveChangesAsync(ct);
 
-                // Create TenantRecord immediately (staged provisioning)
                 // Try to enrich from GLN registry if exists
                 var glnInfo = await publicDb.GlnRegistry
                     .AsNoTracking()
@@ -140,30 +144,17 @@ public static class AuthPharmacistRegistrationEndpoints
                     .Select(x => new { x.CompanyName, x.City, x.Town })
                     .SingleOrDefaultAsync(ct);
 
-                var databaseName = $"tenant_{tenantId.ToLowerInvariant()}";
-                var tenantConnectionString =
-                    $"Host=127.0.0.1;Port=5432;Database={databaseName};Username=postgres;Password=postgres";
-
-                var tenantRecord = new TenantRecord
+                // Update tenant with GLN registry info if available
+                if (glnInfo != null)
                 {
-                    TenantId = tenantId,
-                    PharmacistGln = dto.PersonalGln,
-                    PharmacyName = glnInfo?.CompanyName ?? "Unknown Pharmacy",
-                    PharmacyRegistrationNo = dto.PharmacyRegistrationNo,
-                    City = glnInfo?.City,
-                    District = glnInfo?.Town,
-                    TenantConnectionString = tenantConnectionString,
-                    Status = "Provisioning",
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
-                };
-
-                    controlDb.Tenants.Add(tenantRecord);
+                    tenant.EczaneAdi = glnInfo.CompanyName;
+                    tenant.Ili = glnInfo.City;
+                    tenant.Ilcesi = glnInfo.Town;
                     await controlDb.SaveChangesAsync(ct);
+                }
 
                     // Log successful registration
-                    opasLogger.LogSystemEvent("RegistrationSuccess", $"Pharmacist registration completed successfully", new { 
-                        PharmacistId = pharmacist.PharmacistId, 
+                    opasLogger.LogSystemEvent("RegistrationSuccess", $"Tenant registration completed successfully", new { 
                         TenantId = tenantId, 
                         GLN = dto.PersonalGln,
                         Username = dto.Username,
@@ -171,33 +162,31 @@ public static class AuthPharmacistRegistrationEndpoints
                     });
 
                     // Log to management system
-                    managementLogging.LogSystemEvent("NewPharmacistRegistered", $"New pharmacist registered: {dto.Username}", new {
-                        PharmacistId = pharmacist.PharmacistId,
+                    managementLogging.LogSystemEvent("NewTenantRegistered", $"New tenant registered: {dto.Username}", new {
                         TenantId = tenantId,
                         GLN = dto.PersonalGln,
                         IP = clientIP
                     });
 
                     // Log to tenant-specific logs (when tenant is active)
-                    tenantLogging.LogTenantActivity(tenantId, pharmacist.PharmacistId, "RegistrationCompleted", new {
+                    tenantLogging.LogTenantActivity(tenantId, tenantId, "RegistrationCompleted", new {
                         Username = dto.Username,
                         Email = dto.Email,
                         GLN = dto.PersonalGln
                     });
 
-                    return Results.Created($"/api/auth/pharmacist/{pharmacist.Id}", new
+                    return Results.Created($"/api/auth/tenant/{tenantId}", new
                     {
                         success = true,
-                        pharmacistId = pharmacist.PharmacistId, // Smart ID
                         tenantId = tenantId,
-                        username = pharmacist.Username,
-                        message = "Eczacı kaydı başarıyla oluşturuldu. Tenant provisioning işlemi başlatıldı."
+                        username = tenant.Username,
+                        message = "Tenant kaydı başarıyla oluşturuldu."
                     });
                 }
                 catch (Exception ex)
                 {
                     // Log registration failure
-                    opasLogger.LogError(ex, $"Pharmacist registration failed for {dto.Username}", new {
+                    opasLogger.LogError(ex, $"Tenant registration failed for {dto.Username}", new {
                         GLN = dto.PersonalGln,
                         Username = dto.Username,
                         Email = dto.Email,

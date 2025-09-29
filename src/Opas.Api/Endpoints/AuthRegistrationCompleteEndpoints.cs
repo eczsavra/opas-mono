@@ -113,7 +113,7 @@ public static class AuthRegistrationCompleteEndpoints
                         CreatedAt = DateTime.UtcNow
                     };
 
-                    controlDb.Tenants.Add(tenantRecord);
+                    controlDb.TenantRecords.Add(tenantRecord);
 
                     // 9. PharmacistAdmin kaydı oluştur
                     var pharmacistAdmin = new

@@ -44,7 +44,7 @@ public static class ControlTenantEndpoints
             // Check if this is an update (TenantId provided) or create (no TenantId)
             if (!string.IsNullOrWhiteSpace(body.TenantId))
             {
-                existing = await db.Tenants.AsTracking().FirstOrDefaultAsync(x => x.TenantId == body.TenantId);
+                existing = await db.TenantRecords.AsTracking().FirstOrDefaultAsync(x => x.TenantId == body.TenantId);
                 isUpdate = existing is not null;
             }
 
@@ -55,7 +55,7 @@ public static class ControlTenantEndpoints
                 do
                 {
                     newTenantId = GenerateTenantId();
-                } while (await db.Tenants.AnyAsync(x => x.TenantId == newTenantId));
+                } while (await db.TenantRecords.AnyAsync(x => x.TenantId == newTenantId));
 
                 var newTenant = new TenantRecord
                 {
@@ -69,7 +69,7 @@ public static class ControlTenantEndpoints
                     Status = "Active"
                 };
 
-                db.Tenants.Add(newTenant);
+                db.TenantRecords.Add(newTenant);
                 await db.SaveChangesAsync();
                 return Results.Created($"/control/tenant/{newTenantId}", new { ok = true, created = true, tenantId = newTenantId, pharmacistGln = body.PharmacistGln });
             }

@@ -14,7 +14,9 @@ namespace Opas.Infrastructure.Persistence;
 /// </summary>
 public sealed class ControlPlaneDbContext : DbContext
 {
-    public DbSet<TenantRecord> Tenants => Set<TenantRecord>();
+    public DbSet<TenantRecord> TenantRecords => Set<TenantRecord>(); // OLD - legacy
+    public DbSet<Tenant> Tenants => Set<Tenant>(); // NEW - new structure
+    public DbSet<TenantUsername> TenantsUsernames => Set<TenantUsername>(); // NEW - username control
     public DbSet<TokenStore> Tokens => Set<TokenStore>();
     public DbSet<User> Users => Set<User>(); // LEGACY - will be migrated to PharmacistAdmin
     public DbSet<PharmacistAdmin> PharmacistAdmins => Set<PharmacistAdmin>(); // NEW - main pharmacist accounts
@@ -134,10 +136,10 @@ public sealed class ControlPlaneDbContext : DbContext
             e.Property(x => x.Role).HasColumnName("role").HasMaxLength(50);
         });
 
-        // TenantRecord mapping (UPDATED for new TenantId structure)
+        // TenantRecord mapping (LEGACY - old structure)
         modelBuilder.Entity<TenantRecord>(e =>
         {
-            e.ToTable("tenants");
+            e.ToTable("tenant_records");
             e.HasKey(x => x.TenantId); // PRIMARY KEY is now TenantId, not GLN
             e.Property(x => x.TenantId).HasColumnName("tenant_id").IsRequired().HasMaxLength(50);
             e.Property(x => x.PharmacistGln).HasColumnName("pharmacist_gln").IsRequired().HasMaxLength(13);
@@ -150,6 +152,47 @@ public sealed class ControlPlaneDbContext : DbContext
             e.Property(x => x.Status).HasColumnName("status").IsRequired().HasMaxLength(50);
             e.Property(x => x.CreatedAt).HasColumnName("created_at");
             e.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+        });
+
+        // Tenant mapping (NEW - new structure)
+        modelBuilder.Entity<Tenant>(e =>
+        {
+            e.ToTable("tenants");
+            e.HasKey(x => x.TId);
+            e.Property(x => x.TId).HasColumnName("t_id").IsRequired().HasMaxLength(50);
+            e.Property(x => x.Gln).HasColumnName("gln").IsRequired().HasMaxLength(13);
+            e.HasIndex(x => x.Gln).IsUnique(); // GLN must be unique
+            e.Property(x => x.Type).HasColumnName("type").IsRequired().HasMaxLength(20);
+            e.Property(x => x.EczaneAdi).HasColumnName("eczane_adi").HasMaxLength(200);
+            e.Property(x => x.Ili).HasColumnName("ili").HasMaxLength(100);
+            e.Property(x => x.Ilcesi).HasColumnName("ilcesi").HasMaxLength(100);
+            e.Property(x => x.IsActive).HasColumnName("isactive");
+            e.Property(x => x.Ad).HasColumnName("ad").IsRequired().HasMaxLength(100);
+            e.Property(x => x.Soyad).HasColumnName("soyad").IsRequired().HasMaxLength(100);
+            e.Property(x => x.TcNo).HasColumnName("tc_no").HasMaxLength(11);
+            e.Property(x => x.DogumYili).HasColumnName("dogum_yili");
+            e.Property(x => x.IsNviVerified).HasColumnName("isnviverified");
+            e.Property(x => x.Email).HasColumnName("email").IsRequired().HasMaxLength(200);
+            e.HasIndex(x => x.Email).IsUnique(); // Email must be unique
+            e.Property(x => x.IsEmailVerified).HasColumnName("isemailverified");
+            e.Property(x => x.CepTel).HasColumnName("cep_tel").HasMaxLength(15);
+            e.Property(x => x.IsCepTelVerified).HasColumnName("isceptelverified");
+            e.Property(x => x.Username).HasColumnName("username").IsRequired().HasMaxLength(50);
+            e.Property(x => x.Password).HasColumnName("password").IsRequired().HasMaxLength(255);
+            e.Property(x => x.IsCompleted).HasColumnName("iscompleted");
+            e.Property(x => x.KayitOlusturulmaZamani).HasColumnName("kayit_olusturulma_zamani");
+            e.Property(x => x.KayitGuncellenmeZamani).HasColumnName("kayit_guncellenme_zamani");
+            e.Property(x => x.KayitSilinmeZamani).HasColumnName("kayit_silinme_zamani");
+        });
+
+        // TenantUsername mapping (NEW - username control)
+        modelBuilder.Entity<TenantUsername>(e =>
+        {
+            e.ToTable("tenants_usernames");
+            e.HasKey(x => x.TId);
+            e.Property(x => x.TId).HasColumnName("t_id").IsRequired().HasMaxLength(50);
+            e.Property(x => x.Username).HasColumnName("username").IsRequired().HasMaxLength(50);
+            e.HasIndex(x => x.Username).IsUnique(); // Username must be unique globally
         });
 
         // LogEntry configuration

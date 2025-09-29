@@ -235,7 +235,7 @@ public class ItsTenantSyncService
         using var scope = _serviceProvider.CreateScope();
         var controlDb = scope.ServiceProvider.GetRequiredService<ControlPlaneDbContext>();
         
-        var tenant = await controlDb.Tenants
+        var tenant = await controlDb.TenantRecords
             .AsNoTracking()
             .FirstOrDefaultAsync(t => t.TenantId == tenantId);
 
@@ -247,7 +247,7 @@ public class ItsTenantSyncService
         using var scope = _serviceProvider.CreateScope();
         var controlDb = scope.ServiceProvider.GetRequiredService<ControlPlaneDbContext>();
         
-        return await controlDb.Tenants
+        return await controlDb.TenantRecords
             .AsNoTracking()
             .Where(t => t.Status == "Active" || t.Status == "Provisioning")
             .Select(t => t.TenantId)

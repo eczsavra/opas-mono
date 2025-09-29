@@ -258,7 +258,7 @@ public class TenantProvisioningService
             }
 
             // 5. Control Plane'e tenant kaydını güncelle
-            var tenant = await _controlPlaneDb.Tenants
+            var tenant = await _controlPlaneDb.TenantRecords
                 .FirstOrDefaultAsync(t => t.TenantId == tenantId, ct);
                 
             if (tenant != null)
@@ -348,7 +348,7 @@ public class TenantProvisioningService
     {
         try
         {
-            var tenant = await _controlPlaneDb.Tenants
+            var tenant = await _controlPlaneDb.TenantRecords
                 .FirstOrDefaultAsync(t => t.TenantId == tenantId, ct);
                 
             if (tenant == null || string.IsNullOrEmpty(tenant.TenantConnectionString))

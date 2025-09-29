@@ -17,7 +17,7 @@ import {
   SupervisorAccount as SuperAdminIcon,
   Login as LoginIcon,
 } from '@mui/icons-material';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../../contexts/AuthContext';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');

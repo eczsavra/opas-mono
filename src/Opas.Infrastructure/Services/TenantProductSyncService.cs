@@ -120,7 +120,7 @@ public class TenantProductSyncService
         
         var results = new Dictionary<string, int>();
         
-        var activeTenants = await _controlPlaneDb.Tenants
+        var activeTenants = await _controlPlaneDb.TenantRecords
             .Where(t => t.Status == "Active")
             .ToListAsync(ct);
 
