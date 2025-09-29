@@ -7,6 +7,7 @@ using Opas.Infrastructure.Persistence.Seed;
 using Opas.Infrastructure.Logging;
 using Opas.Infrastructure.ScheduledJobs;
 using Opas.Infrastructure.Services;
+using Opas.Infrastructure.Search.Services;
 using Opas.Shared.Logging;
 
 namespace Opas.Infrastructure;
@@ -46,6 +47,9 @@ public static class DependencyInjection
         
         // SuperAdmin Services
         services.AddScoped<SuperAdminAuthService>(); // NEW - SuperAdmin authentication
+
+        // Search Services
+        services.AddScoped<ISearchService, SearchService>(); // NEW - Search service
 
         // Scheduled Jobs
         services.AddHostedService<ProductSyncScheduler>();

@@ -14,18 +14,18 @@ namespace Opas.Infrastructure.Services;
 /// </summary>
 public class CentralProductSyncService
 {
-    private readonly ControlPlaneDbContext _controlPlaneDb;
+    private readonly PublicDbContext _publicDb;
     private readonly ItsProductService _itsProductService;
     private readonly ILogger<CentralProductSyncService> _logger;
     private readonly IOpasLogger _opasLogger;
 
     public CentralProductSyncService(
-        ControlPlaneDbContext controlPlaneDb,
+        PublicDbContext publicDb,
         ItsProductService itsProductService,
         ILogger<CentralProductSyncService> logger,
         IOpasLogger opasLogger)
     {
-        _controlPlaneDb = controlPlaneDb;
+        _publicDb = publicDb;
         _itsProductService = itsProductService;
         _logger = logger;
         _opasLogger = opasLogger;
@@ -108,7 +108,7 @@ public class CentralProductSyncService
             batch.Length, uniqueProducts.Length);
         
         // Mevcut ürünleri çek
-        var existingProducts = await _controlPlaneDb.CentralProducts
+        var existingProducts = await _publicDb.CentralProducts
             .Where(p => gtins.Contains(p.Gtin))
             .ToDictionaryAsync(p => p.Gtin, ct);
 
@@ -128,10 +128,8 @@ public class CentralProductSyncService
                 existingProduct.DrugName = itsProduct.DrugName ?? existingProduct.DrugName;
                 existingProduct.ManufacturerGln = itsProduct.ManufacturerGln;
                 existingProduct.ManufacturerName = itsProduct.ManufacturerName;
-                existingProduct.IsActive = itsProduct.Active;
-                existingProduct.IsImported = itsProduct.Imported;
-                existingProduct.LastItsSyncAt = syncTime;
-                existingProduct.ItsRawData = rawData;
+                existingProduct.Active = itsProduct.Active;
+                existingProduct.Imported = itsProduct.Imported;
                 existingProduct.MarkUpdated();
 
                 updatedCount++;
@@ -145,24 +143,18 @@ public class CentralProductSyncService
                     DrugName = itsProduct.DrugName ?? "Unknown",
                     ManufacturerGln = itsProduct.ManufacturerGln,
                     ManufacturerName = itsProduct.ManufacturerName,
-                    Price = 0m, // ITS'den fiyat gelmiyor, default 0
-                    PriceHistory = new List<PriceHistoryEntry>(), // Boş liste
-                    IsActive = itsProduct.Active,
-                    IsImported = itsProduct.Imported,
-                    LastItsSyncAt = syncTime,
-                    ItsRawData = rawData,
-                    CreatedBy = "SYSTEM_ITS_SYNC",
-                    UpdatedBy = "SYSTEM_ITS_SYNC"
+                    Active = itsProduct.Active,
+                    Imported = itsProduct.Imported
                 };
 
-                _controlPlaneDb.CentralProducts.Add(centralProduct);
+                _publicDb.CentralProducts.Add(centralProduct);
                 addedCount++;
             }
         }
 
         try
         {
-            await _controlPlaneDb.SaveChangesAsync(ct);
+            await _publicDb.SaveChangesAsync(ct);
             return (addedCount, updatedCount);
         }
         catch (Exception ex)
@@ -178,7 +170,7 @@ public class CentralProductSyncService
     /// </summary>
     public async Task<int> GetCentralProductCountAsync(CancellationToken ct = default)
     {
-        return await _controlPlaneDb.CentralProducts.CountAsync(ct);
+        return await _publicDb.CentralProducts.CountAsync(ct);
     }
 
     /// <summary>
@@ -186,6 +178,6 @@ public class CentralProductSyncService
     /// </summary>
     public async Task<int> GetActiveProductCountAsync(CancellationToken ct = default)
     {
-        return await _controlPlaneDb.CentralProducts.Where(p => p.IsActive).CountAsync(ct);
+        return await _publicDb.CentralProducts.Where(p => p.Active).CountAsync(ct);
     }
 }

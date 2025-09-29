@@ -18,7 +18,8 @@ public static class AuthPharmacistRegistrationEndpoints
         // POST /api/auth/pharmacist/register
         app.MapPost("/api/auth/pharmacist/register", async (
             [FromBody] PharmacistRegistrationDto dto,
-            [FromServices] ControlPlaneDbContext db,
+            [FromServices] PublicDbContext publicDb,
+            [FromServices] ControlPlaneDbContext controlDb,
             [FromServices] IOpasLogger opasLogger,
             [FromServices] TenantLoggingService tenantLogging,
             [FromServices] ManagementLoggingService managementLogging,
@@ -50,7 +51,7 @@ public static class AuthPharmacistRegistrationEndpoints
                     }
 
                     // Check if GLN already registered
-                    var existingByGln = await db.PharmacistAdmins
+                    var existingByGln = await controlDb.PharmacistAdmins
                         .AsNoTracking()
                         .AnyAsync(x => x.PersonalGln == dto.PersonalGln, ct);
                         
@@ -61,7 +62,7 @@ public static class AuthPharmacistRegistrationEndpoints
                     }
 
                     // Check if username already taken
-                    var existingByUsername = await db.PharmacistAdmins
+                    var existingByUsername = await controlDb.PharmacistAdmins
                         .AsNoTracking()
                         .AnyAsync(x => x.Username == dto.Username.ToLowerInvariant(), ct);
                         
@@ -72,7 +73,7 @@ public static class AuthPharmacistRegistrationEndpoints
                     }
 
                     // Check if email already used
-                    var existingByEmail = await db.PharmacistAdmins
+                    var existingByEmail = await controlDb.PharmacistAdmins
                         .AsNoTracking()
                         .AnyAsync(x => x.Email == dto.Email.ToLowerInvariant(), ct);
                         
@@ -87,14 +88,14 @@ public static class AuthPharmacistRegistrationEndpoints
                     do
                     {
                         pharmacistId = SmartIdGenerator.GeneratePharmacistId();
-                    } while (await db.PharmacistAdmins.AnyAsync(x => x.PharmacistId == pharmacistId, ct) ||
-                             await db.SubUsers.AnyAsync(x => x.SubUserId == pharmacistId, ct));
+                    } while (await controlDb.PharmacistAdmins.AnyAsync(x => x.PharmacistId == pharmacistId, ct) ||
+                             await controlDb.SubUsers.AnyAsync(x => x.SubUserId == pharmacistId, ct));
 
                     string tenantId;
                     do
                     {
                         tenantId = SmartIdGenerator.GenerateTenantId();
-                    } while (await db.PharmacistAdmins.AnyAsync(x => x.TenantId == tenantId, ct));
+                    } while (await controlDb.PharmacistAdmins.AnyAsync(x => x.TenantId == tenantId, ct));
 
                     // Log ID generation
                     opasLogger.LogSystemEvent("RegistrationIDGeneration", $"Generated IDs for new pharmacist", new { 
@@ -128,12 +129,12 @@ public static class AuthPharmacistRegistrationEndpoints
                     Role = "PharmacyAdmin"
                 };
 
-                db.PharmacistAdmins.Add(pharmacist);
-                await db.SaveChangesAsync(ct);
+                controlDb.PharmacistAdmins.Add(pharmacist);
+                await controlDb.SaveChangesAsync(ct);
 
                 // Create TenantRecord immediately (staged provisioning)
                 // Try to enrich from GLN registry if exists
-                var glnInfo = await db.GlnRegistry
+                var glnInfo = await publicDb.GlnRegistry
                     .AsNoTracking()
                     .Where(x => x.Gln == dto.PersonalGln)
                     .Select(x => new { x.CompanyName, x.City, x.Town })
@@ -157,8 +158,8 @@ public static class AuthPharmacistRegistrationEndpoints
                     UpdatedAt = DateTime.UtcNow
                 };
 
-                    db.Tenants.Add(tenantRecord);
-                    await db.SaveChangesAsync(ct);
+                    controlDb.Tenants.Add(tenantRecord);
+                    await controlDb.SaveChangesAsync(ct);
 
                     // Log successful registration
                     opasLogger.LogSystemEvent("RegistrationSuccess", $"Pharmacist registration completed successfully", new { 

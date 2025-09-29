@@ -65,7 +65,7 @@ public static class CentralProductEndpoints
         // GET /api/central/products - Merkezi DB ürünleri listele
         Console.WriteLine("🔧 Mapping GET / endpoint for central products");
         group.MapGet("/", async (
-            ControlPlaneDbContext dbContext,
+            PublicDbContext dbContext,
             [FromQuery] string? search = null,
             [FromQuery] bool? isActive = null,
             [FromQuery] string? letterFilter = null, // Yeni: harf filtresi
@@ -90,7 +90,7 @@ public static class CentralProductEndpoints
                 // Active/Inactive filter
                 if (isActive.HasValue)
                 {
-                    query = query.Where(p => p.IsActive == isActive.Value);
+                    query = query.Where(p => p.Active == isActive.Value);
                 }
 
                 // Letter filter - Harf filtresi
@@ -135,10 +135,8 @@ public static class CentralProductEndpoints
                         p.DrugName,
                         p.ManufacturerName,
                         p.ManufacturerGln,
-                        p.IsActive,
-                        p.IsImported,
-                        p.Price,
-                        p.LastItsSyncAt,
+                        p.Active,
+                        p.Imported,
                         p.CreatedAtUtc,
                         p.UpdatedAtUtc
                     })
@@ -171,7 +169,7 @@ public static class CentralProductEndpoints
 
         // GET /api/central/products/letter-counts - Harf başına ürün sayıları
         group.MapGet("/letter-counts", async (
-            ControlPlaneDbContext dbContext,
+            PublicDbContext dbContext,
             HttpContext httpContext = default!
         ) =>
         {
@@ -180,7 +178,7 @@ public static class CentralProductEndpoints
                 // Tüm ürünleri memory'ye çek ve orada işle
                 var allProducts = await dbContext.CentralProducts
                     .Where(p => p.DrugName != null && p.DrugName.Length > 0)
-                    .Select(p => new { p.DrugName, p.IsActive })
+                    .Select(p => new { p.DrugName, p.Active })
                     .ToListAsync();
 
                 // Tüm harfler için sayıları hesapla
@@ -190,21 +188,21 @@ public static class CentralProductEndpoints
                 for (char c = 'A'; c <= 'Z'; c++)
                 {
                     var letter = c.ToString();
-                    var activeCount = allProducts.Count(p => p.DrugName.ToUpper().StartsWith(letter) && p.IsActive);
-                    var passiveCount = allProducts.Count(p => p.DrugName.ToUpper().StartsWith(letter) && !p.IsActive);
+                    var activeCount = allProducts.Count(p => p.DrugName.ToUpper().StartsWith(letter) && p.Active);
+                    var passiveCount = allProducts.Count(p => p.DrugName.ToUpper().StartsWith(letter) && !p.Active);
                     
                     letterCounts[letter] = new { active = activeCount, passive = passiveCount };
                 }
 
                 // 0-9 rakamları
-                var digitActiveCount = allProducts.Count(p => char.IsDigit(p.DrugName[0]) && p.IsActive);
-                var digitPassiveCount = allProducts.Count(p => char.IsDigit(p.DrugName[0]) && !p.IsActive);
+                var digitActiveCount = allProducts.Count(p => char.IsDigit(p.DrugName[0]) && p.Active);
+                var digitPassiveCount = allProducts.Count(p => char.IsDigit(p.DrugName[0]) && !p.Active);
                 
                 letterCounts["0-9"] = new { active = digitActiveCount, passive = digitPassiveCount };
 
                 // Özel karakterler
-                var specialActiveCount = allProducts.Count(p => !char.IsLetter(p.DrugName[0]) && !char.IsDigit(p.DrugName[0]) && p.IsActive);
-                var specialPassiveCount = allProducts.Count(p => !char.IsLetter(p.DrugName[0]) && !char.IsDigit(p.DrugName[0]) && !p.IsActive);
+                var specialActiveCount = allProducts.Count(p => !char.IsLetter(p.DrugName[0]) && !char.IsDigit(p.DrugName[0]) && p.Active);
+                var specialPassiveCount = allProducts.Count(p => !char.IsLetter(p.DrugName[0]) && !char.IsDigit(p.DrugName[0]) && !p.Active);
                 
                 letterCounts["Özel Karakterler"] = new { active = specialActiveCount, passive = specialPassiveCount };
 

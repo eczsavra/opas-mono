@@ -15,7 +15,7 @@ public static class GlnRegistryEndpoints
 
         // GET /api/gln-registry - Tüm GLN listesi (pagination ile)
         group.MapGet("/", async (
-            ControlPlaneDbContext db,
+            PublicDbContext db,
             IOpasLogger opasLogger,
             HttpContext httpContext,
             [FromQuery] int page = 1,
@@ -106,7 +106,7 @@ public static class GlnRegistryEndpoints
 
         // GET /api/gln-registry/stats - İstatistikler
         group.MapGet("/stats", async (
-            ControlPlaneDbContext db,
+            PublicDbContext db,
             IOpasLogger opasLogger,
             HttpContext httpContext) =>
         {
@@ -145,7 +145,7 @@ public static class GlnRegistryEndpoints
         // GET /api/gln-registry/towns/{city} - Şehire göre ilçe listesi
         group.MapGet("/towns/{city}", async (
             string city,
-            ControlPlaneDbContext db,
+            PublicDbContext db,
             IOpasLogger opasLogger,
             HttpContext httpContext) =>
         {

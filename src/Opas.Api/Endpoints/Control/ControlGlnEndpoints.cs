@@ -28,7 +28,7 @@ public static class ControlGlnEndpoints
         // GET /control/gln/exists?value=868...
         app.MapGet("/control/gln/exists", async (
             [FromQuery] string? value,
-            ControlPlaneDbContext db) =>
+            PublicDbContext db) =>
         {
             if (string.IsNullOrWhiteSpace(value) || !Gln.IsValid(value))
                 return Results.BadRequest(new { ok = false, error = "invalid gln format" });
@@ -45,7 +45,7 @@ public static class ControlGlnEndpoints
         
         // 2) GLN ara (q, page, size)
         app.MapGet("/control/gln/search", async (
-            ControlPlaneDbContext db,
+            PublicDbContext db,
             [FromQuery] string q,
             [FromQuery] int page = 1,
             [FromQuery] int size = 20
@@ -86,7 +86,7 @@ public static class ControlGlnEndpoints
         });
 
         // 3) GLN getir (tek kayıt) – regex: 13 hane
-        app.MapGet("/control/gln/{gln:regex(^\\d{{13}}$)}", async (string gln, ControlPlaneDbContext db) =>
+        app.MapGet("/control/gln/{gln:regex(^\\d{{13}}$)}", async (string gln, PublicDbContext db) =>
         {
             await db.Database.EnsureCreatedAsync();
 
@@ -106,7 +106,7 @@ public static class ControlGlnEndpoints
         });
 
         // 4) GLN upsert
-        app.MapPost("/control/gln/upsert", async ([FromBody] GlnUpsertDto body, ControlPlaneDbContext db) =>
+        app.MapPost("/control/gln/upsert", async ([FromBody] GlnUpsertDto body, PublicDbContext db) =>
         {
             if (!Gln.IsValid(body.Gln))
                 return Results.BadRequest(new { ok = false, gln = body.Gln, error = "invalid gln format" });
@@ -142,7 +142,7 @@ public static class ControlGlnEndpoints
 
         // POST /control/gln/import/its
         app.MapPost("/control/gln/import/its", async (
-            [FromServices] ControlPlaneDbContext db,
+            [FromServices] PublicDbContext db,
             [FromServices] ITokenProvider tokenProvider,
             [FromServices] ILogger<Program> logger,
             CancellationToken ct) =>

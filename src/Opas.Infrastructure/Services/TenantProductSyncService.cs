@@ -14,17 +14,20 @@ namespace Opas.Infrastructure.Services;
 /// </summary>
 public class TenantProductSyncService
 {
+    private readonly PublicDbContext _publicDb;
     private readonly ControlPlaneDbContext _controlPlaneDb;
     private readonly ILogger<TenantProductSyncService> _logger;
     private readonly IOpasLogger _opasLogger;
     private readonly IServiceProvider _serviceProvider;
 
     public TenantProductSyncService(
+        PublicDbContext publicDb,
         ControlPlaneDbContext controlPlaneDb,
         ILogger<TenantProductSyncService> logger,
         IOpasLogger opasLogger,
         IServiceProvider serviceProvider)
     {
+        _publicDb = publicDb;
         _controlPlaneDb = controlPlaneDb;
         _logger = logger;
         _opasLogger = opasLogger;
@@ -49,7 +52,7 @@ public class TenantProductSyncService
             var gln = tenantId.StartsWith("TNT_") ? tenantId.Substring(4) : tenantId;
             
             // GLN Registry'den eczane bilgilerini al
-            var pharmacy = await _controlPlaneDb.GlnRegistry
+            var pharmacy = await _publicDb.GlnRegistry
                 .Where(g => g.Gln == gln && g.Active == true)
                 .FirstOrDefaultAsync(ct);
 
@@ -67,7 +70,7 @@ public class TenantProductSyncService
 
             // Merkezi DB'den tüm ürünleri al (aktif + pasif)
             // Eczacılar pasif ürünleri de görmeli (stok düşürme, görüntüleme vb.)
-            var centralProducts = await _controlPlaneDb.CentralProducts
+            var centralProducts = await _publicDb.CentralProducts
                 .ToListAsync(ct);
 
             if (centralProducts.Count == 0)
@@ -178,14 +181,8 @@ public class TenantProductSyncService
                         DrugName = centralProduct.DrugName,
                         ManufacturerGln = centralProduct.ManufacturerGln,
                         ManufacturerName = centralProduct.ManufacturerName,
-                        Price = centralProduct.Price, // Central price'ı kopyala
-                        PriceHistory = centralProduct.PriceHistory.ToList(), // Copy price history
-                        IsActive = centralProduct.IsActive,
-                        IsImported = centralProduct.IsImported,
-                        LastItsSyncAt = centralProduct.LastItsSyncAt,
-                        ItsRawData = centralProduct.ItsRawData,
-                        CreatedBy = centralProduct.CreatedBy,
-                        UpdatedBy = centralProduct.UpdatedBy
+                        IsActive = centralProduct.Active,
+                        IsImported = centralProduct.Imported
                     };
 
                     tenantDb.Products.Add(tenantProduct);
@@ -197,11 +194,8 @@ public class TenantProductSyncService
                     tenantProduct.DrugName = centralProduct.DrugName;
                     tenantProduct.ManufacturerGln = centralProduct.ManufacturerGln;
                     tenantProduct.ManufacturerName = centralProduct.ManufacturerName;
-                    tenantProduct.IsActive = centralProduct.IsActive;
-                    tenantProduct.IsImported = centralProduct.IsImported;
-                    tenantProduct.LastItsSyncAt = centralProduct.LastItsSyncAt;
-                    tenantProduct.ItsRawData = centralProduct.ItsRawData;
-                    tenantProduct.UpdatedBy = centralProduct.UpdatedBy;
+                    tenantProduct.IsActive = centralProduct.Active;
+                    tenantProduct.IsImported = centralProduct.Imported;
                     
                     // NOT: Price ve PriceHistory kasıtlı olarak güncellenmedi - tenant'ın customization'ını koru
                     

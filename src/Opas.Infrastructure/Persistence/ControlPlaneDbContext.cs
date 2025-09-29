@@ -15,13 +15,11 @@ namespace Opas.Infrastructure.Persistence;
 public sealed class ControlPlaneDbContext : DbContext
 {
     public DbSet<TenantRecord> Tenants => Set<TenantRecord>();
-    public DbSet<GlnRecord>   GlnRegistry => Set<GlnRecord>();   // ✅ YENİ
     public DbSet<TokenStore> Tokens => Set<TokenStore>();
     public DbSet<User> Users => Set<User>(); // LEGACY - will be migrated to PharmacistAdmin
     public DbSet<PharmacistAdmin> PharmacistAdmins => Set<PharmacistAdmin>(); // NEW - main pharmacist accounts
     public DbSet<SubUser> SubUsers => Set<SubUser>(); // NEW - pharmacy employee accounts
     public DbSet<LogEntry> LogEntries => Set<LogEntry>(); // NEW - application logs
-    public DbSet<CentralProduct> CentralProducts => Set<CentralProduct>(); // NEW - central products from ITS
     public DbSet<SuperAdmin> SuperAdmins => Set<SuperAdmin>(); // NEW - system administrators
 
 
@@ -32,27 +30,6 @@ public sealed class ControlPlaneDbContext : DbContext
     {
         // TenantRecord mapping moved below (new structure with TenantId as PK)
 
-        modelBuilder.Entity<GlnRecord>(e =>
-        {
-            e.ToTable("gln_registry");
-            e.HasKey(x => x.Id);
-            e.Property(x => x.Id).HasColumnName("id");
-            e.Property(x => x.Gln).HasColumnName("gln").HasMaxLength(13).IsRequired();
-            e.HasIndex(x => x.Gln).IsUnique();
-
-            // ITS stakeholder fields
-            e.Property(x => x.CompanyName).HasColumnName("company_name").HasMaxLength(200);
-            e.Property(x => x.Authorized).HasColumnName("authorized").HasMaxLength(200);
-            e.Property(x => x.Email).HasColumnName("email").HasMaxLength(200);
-            e.Property(x => x.Phone).HasColumnName("phone").HasMaxLength(50);
-            e.Property(x => x.City).HasColumnName("city").HasMaxLength(100);
-            e.Property(x => x.Town).HasColumnName("town").HasMaxLength(100);
-            e.Property(x => x.Address).HasColumnName("address").HasMaxLength(500);
-            e.Property(x => x.Active).HasColumnName("active");
-            e.Property(x => x.Source).HasColumnName("source").HasMaxLength(50);
-
-            e.Property(x => x.ImportedAtUtc).HasColumnName("imported_at_utc");
-        });
 
         // TokenStore mapping
         modelBuilder.Entity<TokenStore>(e =>
@@ -204,54 +181,6 @@ public sealed class ControlPlaneDbContext : DbContext
             e.HasIndex(x => x.CorrelationId);
         });
 
-        // CentralProduct configuration
-        modelBuilder.Entity<CentralProduct>(e =>
-        {
-            e.ToTable("central_products");
-            e.HasKey(x => x.Id);
-            e.Property(x => x.Id).HasColumnName("id");
-            
-            // GTIN is unique globally
-            e.HasIndex(x => x.Gtin).IsUnique();
-            e.Property(x => x.Gtin).HasColumnName("gtin").HasMaxLength(50).IsRequired();
-            
-            // Drug info
-            e.Property(x => x.DrugName).HasColumnName("drug_name").HasMaxLength(500).IsRequired();
-            e.Property(x => x.ManufacturerGln).HasColumnName("manufacturer_gln").HasMaxLength(50);
-            e.Property(x => x.ManufacturerName).HasColumnName("manufacturer_name").HasMaxLength(500);
-            
-            // Price fields
-            e.Property(x => x.Price).HasColumnName("price").HasColumnType("numeric(18,4)");
-            e.Property(x => x.PriceHistory).HasColumnName("price_history").HasColumnType("jsonb")
-                .HasConversion(
-                    v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
-                    v => JsonSerializer.Deserialize<List<PriceHistoryEntry>>(v, (JsonSerializerOptions?)null) ?? new List<PriceHistoryEntry>()
-                );
-            
-            // ITS fields
-            e.Property(x => x.IsActive).HasColumnName("is_active");
-            e.Property(x => x.IsImported).HasColumnName("is_imported");
-            e.Property(x => x.LastItsSyncAt).HasColumnName("last_its_sync_at");
-            e.Property(x => x.ItsRawData).HasColumnName("its_raw_data").HasColumnType("text");
-            
-            // User tracking fields
-            e.Property(x => x.CreatedBy).HasColumnName("created_by").HasMaxLength(100);
-            e.Property(x => x.UpdatedBy).HasColumnName("updated_by").HasMaxLength(100);
-            
-            // BaseEntity fields
-            e.Property(x => x.IsDeleted).HasColumnName("is_deleted");
-            e.Property(x => x.CreatedAtUtc).HasColumnName("created_at_utc");
-            e.Property(x => x.UpdatedAtUtc).HasColumnName("updated_at_utc");
-            
-            // Indexes for performance
-            e.HasIndex(x => x.DrugName);
-            e.HasIndex(x => x.IsActive);
-            e.HasIndex(x => x.LastItsSyncAt);
-            e.HasIndex(x => x.ManufacturerGln);
-            
-            // Soft delete filter
-            e.HasQueryFilter(x => !x.IsDeleted);
-        });
 
         // SuperAdmin configuration
         modelBuilder.Entity<SuperAdmin>(e =>

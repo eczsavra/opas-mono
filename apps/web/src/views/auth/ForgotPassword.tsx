@@ -323,13 +323,21 @@ export default function ForgotPassword() {
           return
         }
         
-        // Şimdilik test amaçlı: kayıtlı kullanıcının GLN'i 8680001530144
-        // Gerçek uygulamada backend'den kullanıcının GLN'ini alacağız
-        const expectedGln = '8680001530144' // eczsavra kullanıcısının GLN'i
+        // Backend'den GLN'in var olup olmadığını kontrol et
+        const glnResponse = await fetch(`/api/opas/control/gln/exists?value=${encodeURIComponent(enteredGln)}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        })
         
-        if (enteredGln !== expectedGln) {
-          // Modern toast notification yerine güzel bir snackbar gösterelim
-          setError(`GLN numarası hatalı! Bu email ile kayıtlı GLN: ${expectedGln.substring(0, 6)}****`)
+        if (!glnResponse.ok) {
+          setError('GLN kontrolü başarısız. Lütfen tekrar deneyin.')
+          setLoading(false)
+          return
+        }
+        
+        const glnResult = await glnResponse.json()
+        if (!glnResult.ok || !glnResult.exists) {
+          setError('GLN numarası bu email ile eşleşmiyor!')
           setLoading(false)
           return
         }
@@ -379,7 +387,7 @@ export default function ForgotPassword() {
           } else {
             setSuccess('Şifre başarıyla sıfırlandı! Giriş sayfasına yönlendiriliyorsunuz...')
             setTimeout(() => {
-              window.location.href = '/login2'
+              window.location.href = '/t-login'
             }, 2000)
           }
       }
@@ -721,7 +729,7 @@ export default function ForgotPassword() {
             </Typography>
             <Button
               component="a"
-              href="/login2"
+              href="/t-login"
               variant="contained"
               startIcon={<ArrowBack />}
               sx={{ borderRadius: 2 }}
@@ -758,7 +766,7 @@ export default function ForgotPassword() {
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, mb: 2 }}>
               <IconButton 
                 component="a" 
-                href="/login2"
+                href="/t-login"
                 sx={{ 
                   bgcolor: 'primary.main', 
                   color: 'white',

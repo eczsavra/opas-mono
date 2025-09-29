@@ -16,17 +16,20 @@ public class TenantGlnSyncService
 {
     private readonly ILogger<TenantGlnSyncService> _logger;
     private readonly IOpasLogger _opasLogger;
+    private readonly PublicDbContext _publicDb;
     private readonly ControlPlaneDbContext _controlPlaneDb;
     private readonly IServiceProvider _serviceProvider;
 
     public TenantGlnSyncService(
         ILogger<TenantGlnSyncService> logger,
         IOpasLogger opasLogger,
+        PublicDbContext publicDb,
         ControlPlaneDbContext controlPlaneDb,
         IServiceProvider serviceProvider)
     {
         _logger = logger;
         _opasLogger = opasLogger;
+        _publicDb = publicDb;
         _controlPlaneDb = controlPlaneDb;
         _serviceProvider = serviceProvider;
     }
@@ -45,7 +48,7 @@ public class TenantGlnSyncService
             var gln = tenantId.StartsWith("TNT_") ? tenantId.Substring(4) : tenantId;
 
             // GLN Registry'den eczane bilgilerini al
-            var pharmacy = await _controlPlaneDb.GlnRegistry
+            var pharmacy = await _publicDb.GlnRegistry
                 .Where(g => g.Gln == gln && g.Active == true)
                 .FirstOrDefaultAsync(ct);
 
@@ -62,7 +65,7 @@ public class TenantGlnSyncService
             var tenantConnectionString = $"Host=127.0.0.1;Port=5432;Database=opas_tenant_{gln};Username=postgres;Password=postgres";
 
             // Merkezi DB'den tüm GLN'leri al
-            var centralGlns = await _controlPlaneDb.GlnRegistry
+            var centralGlns = await _publicDb.GlnRegistry
                 .ToListAsync(ct);
 
             return await SyncGlnsToTenantDb(tenantConnectionString, centralGlns, tenantId, ct);
@@ -87,7 +90,7 @@ public class TenantGlnSyncService
         var results = new Dictionary<string, int>();
 
         // Aktif eczaneleri al
-        var pharmacies = await _controlPlaneDb.GlnRegistry
+        var pharmacies = await _publicDb.GlnRegistry
             .Where(g => g.Active == true)
             .ToListAsync(ct);
 

@@ -80,7 +80,7 @@ public class GlnImportScheduler : BackgroundService
         try
         {
             using var scope = _serviceProvider.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<ControlPlaneDbContext>();
+            var db = scope.ServiceProvider.GetRequiredService<PublicDbContext>();
             var tokenProvider = scope.ServiceProvider.GetRequiredService<ITokenProvider>();
 
             var token = await tokenProvider.GetTokenAsync("ITS-Access");

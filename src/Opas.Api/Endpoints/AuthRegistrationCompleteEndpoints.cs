@@ -39,7 +39,8 @@ public static class AuthRegistrationCompleteEndpoints
     {
         app.MapPost("/auth/register/complete", async (
             [FromBody] RegisterCompleteRequest request,
-            [FromServices] ControlPlaneDbContext db,
+            [FromServices] PublicDbContext publicDb,
+            [FromServices] ControlPlaneDbContext controlDb,
             [FromServices] TenantProvisioningService provisioningService,
             [FromServices] IOpasLogger opasLogger,
             HttpContext httpContext) =>
@@ -56,7 +57,7 @@ public static class AuthRegistrationCompleteEndpoints
                 }
 
                 // 2. Username benzersizliği kontrolü
-                var existingUser = await db.PharmacistAdmins
+                var existingUser = await controlDb.PharmacistAdmins
                     .FirstOrDefaultAsync(p => p.Username == request.Username);
                     
                 if (existingUser != null)
@@ -65,7 +66,7 @@ public static class AuthRegistrationCompleteEndpoints
                 }
 
                 // 3. TC No benzersizliği kontrolü
-                var existingTc = await db.PharmacistAdmins
+                var existingTc = await controlDb.PharmacistAdmins
                     .FirstOrDefaultAsync(p => p.TcNumber == request.TcNo);
                     
                 if (existingTc != null)
@@ -77,8 +78,8 @@ public static class AuthRegistrationCompleteEndpoints
                 // TODO: Gerçek token->GLN mapping
                 var pharmacistGln = "8680001000000"; // Test için sabit GLN
 
-                // GLN registry'den bilgileri al
-                var glnInfo = await db.GlnRegistry
+                // GLN registry'den bilgileri al - Public DB'den
+                var glnInfo = await publicDb.GlnRegistry
                     .FirstOrDefaultAsync(g => g.Gln == pharmacistGln);
 
                 var pharmacyName = request.PharmacyName ?? glnInfo?.CompanyName ?? "Unknown Pharmacy";
@@ -94,7 +95,7 @@ public static class AuthRegistrationCompleteEndpoints
                 var passwordHash = HashPassword(request.Password, salt);
 
                 // 7. Transaction başlat
-                using var transaction = await db.Database.BeginTransactionAsync();
+                using var transaction = await controlDb.Database.BeginTransactionAsync();
 
                 try
                 {
@@ -112,7 +113,7 @@ public static class AuthRegistrationCompleteEndpoints
                         CreatedAt = DateTime.UtcNow
                     };
 
-                    db.Tenants.Add(tenantRecord);
+                    controlDb.Tenants.Add(tenantRecord);
 
                     // 9. PharmacistAdmin kaydı oluştur
                     var pharmacistAdmin = new
@@ -155,7 +156,7 @@ public static class AuthRegistrationCompleteEndpoints
                             @p15, @p16, @p17, @p18, @p19
                         )";
 
-                    await db.Database.ExecuteSqlRawAsync(insertSql,
+                    await controlDb.Database.ExecuteSqlRawAsync(insertSql,
                         pharmacistAdmin.PharmacistId,
                         pharmacistAdmin.Username,
                         pharmacistAdmin.PasswordHash,
@@ -177,7 +178,7 @@ public static class AuthRegistrationCompleteEndpoints
                         pharmacistAdmin.CreatedAt,
                         pharmacistAdmin.Role);
 
-                    await db.SaveChangesAsync();
+                    await controlDb.SaveChangesAsync();
 
                     // 10. Tenant DB'yi provision et
                     var (success, connectionString, message) = await provisioningService.ProvisionTenantDatabaseAsync(
@@ -194,7 +195,7 @@ public static class AuthRegistrationCompleteEndpoints
                     // 11. Tenant connection string'i güncelle
                     tenantRecord.TenantConnectionString = connectionString;
                     tenantRecord.Status = "Active";
-                    await db.SaveChangesAsync();
+                    await controlDb.SaveChangesAsync();
 
                     await transaction.CommitAsync();
 

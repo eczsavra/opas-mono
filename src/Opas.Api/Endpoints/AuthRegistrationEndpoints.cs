@@ -19,7 +19,7 @@ public static class AuthRegistrationEndpoints
     {
         app.MapGet("/auth/register/validate-gln", async (
             [FromQuery] string? value,
-            ControlPlaneDbContext db) =>
+            PublicDbContext db) =>
         {
             // 1) boş / trim
             var gln = value?.Trim();
@@ -133,7 +133,7 @@ public static class AuthRegistrationEndpoints
 
         app.MapPost("/auth/register/start", async (
             [FromBody] RegisterStartRequest body,
-            [FromServices] ControlPlaneDbContext db) =>
+            [FromServices] PublicDbContext db) =>
         {
             // 1) GLN basit kontrol: 13 hane & TR için 868 prefix
             if (string.IsNullOrWhiteSpace(body.Gln) || body.Gln.Length != 13 || !body.Gln.StartsWith("868"))
