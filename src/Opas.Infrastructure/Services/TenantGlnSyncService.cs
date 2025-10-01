@@ -44,8 +44,18 @@ public class TenantGlnSyncService
 
         try
         {
-            // Tenant ID'den GLN çıkar (TNT_229714 → 229714)
-            var gln = tenantId.StartsWith("TNT_") ? tenantId.Substring(4) : tenantId;
+            // Tenant'ın gerçek GLN'sini Tenants tablosundan al
+            var tenant = await _controlPlaneDb.Tenants
+                .Where(t => t.TId == tenantId)
+                .FirstOrDefaultAsync(ct);
+
+            if (tenant == null)
+            {
+                _logger.LogError("Tenant {TenantId} not found", tenantId);
+                return 0;
+            }
+
+            var gln = tenant.Gln;
 
             // GLN Registry'den eczane bilgilerini al
             var pharmacy = await _publicDb.GlnRegistry
@@ -61,8 +71,9 @@ public class TenantGlnSyncService
             _logger.LogInformation("Syncing to pharmacy: {PharmacyName} (GLN: {Gln})", 
                 pharmacy.CompanyName, pharmacy.Gln);
 
-            // Connection string'i GLN'den oluştur
-            var tenantConnectionString = $"Host=127.0.0.1;Port=5432;Database=opas_tenant_{gln};Username=postgres;Password=postgres";
+            // Connection string'i Tenant ID'den oluştur (TNT_GLN → opas_tenant_GLN)
+            var dbSuffix = tenantId.StartsWith("TNT_") ? tenantId.Substring(4) : tenantId;
+            var tenantConnectionString = $"Host=127.0.0.1;Port=5432;Database=opas_tenant_{dbSuffix};Username=postgres;Password=postgres";
 
             // Merkezi DB'den tüm GLN'leri al
             var centralGlns = await _publicDb.GlnRegistry
@@ -129,7 +140,7 @@ public class TenantGlnSyncService
         // Mevcut GLN'leri al
         var existingGlns = new HashSet<string>();
         using (var selectCmd = new NpgsqlCommand(@"
-            SELECT gln FROM gln_registry", connection))
+            SELECT gln FROM gln_list", connection))
         {
             using var reader = await selectCmd.ExecuteReaderAsync(ct);
             while (await reader.ReadAsync(ct))
@@ -153,7 +164,7 @@ public class TenantGlnSyncService
                     {
                         // Update existing GLN
                         using var updateCmd = new NpgsqlCommand(@"
-                            UPDATE gln_registry SET 
+                            UPDATE gln_list SET 
                                 company_name = @company_name,
                                 authorized = @authorized,
                                 email = @email,
@@ -181,7 +192,7 @@ public class TenantGlnSyncService
                     {
                         // Insert new GLN
                         using var insertCmd = new NpgsqlCommand(@"
-                            INSERT INTO gln_registry (
+                            INSERT INTO gln_list (
                                 gln, company_name, authorized, email, phone, 
                                 city, town, address, active, source, imported_at_utc
                             ) VALUES (

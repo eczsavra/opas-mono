@@ -42,7 +42,7 @@ public class TenantProvisioningService
             _logger.LogInformation("Starting tenant provisioning for {TenantId}", tenantId);
             _opasLogger.LogSystemEvent("TenantProvisioning", "Started", new { TenantId = tenantId, Gln = pharmacistGln });
 
-            // 1. Database adını oluştur
+            // 1. Database adını oluştur (TNT_GLN → opas_tenant_GLN)
             var dbName = $"opas_tenant_{tenantId.Replace("TNT_", "").ToLower()}";
             
             // 2. Master connection string'i al
@@ -82,30 +82,9 @@ public class TenantProvisioningService
             {
                 await conn.OpenAsync(ct);
                 
-                // Tenant tablolarını oluştur
+                // Tenant tablolarını oluştur - sadece 3 tablo
                 var createTablesSql = @"
-                    -- Customers tablosu
-                    CREATE TABLE IF NOT EXISTS customers (
-                        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                        tc_no VARCHAR(11) UNIQUE NOT NULL,
-                        first_name VARCHAR(100) NOT NULL,
-                        last_name VARCHAR(100) NOT NULL,
-                        phone VARCHAR(20),
-                        email VARCHAR(200),
-                        address TEXT,
-                        city VARCHAR(100),
-                        district VARCHAR(100),
-                        birth_date DATE,
-                        gender VARCHAR(10),
-                        notes TEXT,
-                        is_deleted BOOLEAN DEFAULT FALSE,
-                        created_at_utc TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-                        updated_at_utc TIMESTAMP WITH TIME ZONE,
-                        created_by VARCHAR(100),
-                        updated_by VARCHAR(100)
-                    );
-
-                    -- Products tablosu (tenant-specific customizations)
+                    -- Products tablosu (central_products'tan beslenir)
                     CREATE TABLE IF NOT EXISTS products (
                         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                         gtin VARCHAR(50) UNIQUE NOT NULL,
@@ -125,8 +104,8 @@ public class TenantProvisioningService
                     CREATE INDEX idx_products_gtin ON products(gtin);
                     CREATE INDEX idx_products_active ON products(is_active) WHERE is_active = TRUE;
 
-                    -- GLN Registry tablosu (paydaş bilgileri - merkezi DB'den sync)
-                    CREATE TABLE IF NOT EXISTS gln_registry (
+                    -- GLN List tablosu (gln_registry'den beslenir. Paydaş bilgileri - merkezi DB'den sync)
+                    CREATE TABLE IF NOT EXISTS gln_list (
                         id SERIAL PRIMARY KEY,
                         gln VARCHAR(50) UNIQUE NOT NULL,
                         company_name VARCHAR(500),
@@ -140,114 +119,38 @@ public class TenantProvisioningService
                         source VARCHAR(50) DEFAULT 'central_sync',
                         imported_at_utc TIMESTAMP WITH TIME ZONE DEFAULT NOW()
                     );
-                    CREATE INDEX idx_gln_registry_gln ON gln_registry(gln);
-                    CREATE INDEX idx_gln_registry_city ON gln_registry(city);
-                    CREATE INDEX idx_gln_registry_active ON gln_registry(active);
+                    CREATE INDEX idx_gln_list_gln ON gln_list(gln);
+                    CREATE INDEX idx_gln_list_city ON gln_list(city);
+                    CREATE INDEX idx_gln_list_active ON gln_list(active);
 
-                    -- Stocks tablosu
-                    CREATE TABLE IF NOT EXISTS stocks (
-                        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                        product_id UUID NOT NULL REFERENCES products(id),
-                        quantity INTEGER DEFAULT 0,
-                        min_quantity INTEGER DEFAULT 5,
-                        max_quantity INTEGER DEFAULT 100,
-                        location VARCHAR(100),
-                        batch_no VARCHAR(100),
-                        expiry_date DATE,
-                        last_purchase_price DECIMAL(18,4),
-                        last_sale_price DECIMAL(18,4),
-                        is_deleted BOOLEAN DEFAULT FALSE,
-                        created_at_utc TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-                        updated_at_utc TIMESTAMP WITH TIME ZONE,
-                        created_by VARCHAR(100),
-                        updated_by VARCHAR(100)
+                    -- Tenant Info tablosu (tenants tablosundan beslenir)
+                    CREATE TABLE IF NOT EXISTS tenant_info (
+                        t_id VARCHAR(50) PRIMARY KEY,
+                        gln VARCHAR(13) NOT NULL,
+                        type VARCHAR(20) NOT NULL DEFAULT 'eczane',
+                        eczane_adi VARCHAR(200),
+                        ili VARCHAR(100),
+                        ilcesi VARCHAR(100),
+                        isactive BOOLEAN DEFAULT TRUE,
+                        ad VARCHAR(100) NOT NULL,
+                        soyad VARCHAR(100) NOT NULL,
+                        tc_no VARCHAR(11),
+                        dogum_yili INTEGER,
+                        isnviverified BOOLEAN DEFAULT FALSE,
+                        email VARCHAR(200) NOT NULL,
+                        isemailverified BOOLEAN DEFAULT FALSE,
+                        cep_tel VARCHAR(15),
+                        isceptelverified BOOLEAN DEFAULT FALSE,
+                        username VARCHAR(50) NOT NULL,
+                        password VARCHAR(255) NOT NULL,
+                        iscompleted BOOLEAN DEFAULT FALSE,
+                        kayit_olusturulma_zamani TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                        kayit_guncellenme_zamani TIMESTAMP WITH TIME ZONE,
+                        kayit_silinme_zamani TIMESTAMP WITH TIME ZONE
                     );
-                    CREATE INDEX idx_stocks_product ON stocks(product_id);
-
-                    -- Sales tablosu
-                    CREATE TABLE IF NOT EXISTS sales (
-                        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                        sale_no VARCHAR(50) UNIQUE NOT NULL,
-                        customer_id UUID REFERENCES customers(id),
-                        sale_date TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-                        payment_method VARCHAR(50) NOT NULL, -- CASH, CARD, CREDIT, IBAN, QR, EMANET
-                        total_amount DECIMAL(18,4) NOT NULL,
-                        discount_amount DECIMAL(18,4) DEFAULT 0,
-                        tax_amount DECIMAL(18,4) DEFAULT 0,
-                        net_amount DECIMAL(18,4) NOT NULL,
-                        status VARCHAR(50) DEFAULT 'COMPLETED', -- COMPLETED, CANCELLED, RETURNED
-                        notes TEXT,
-                        yn_okc_receipt_no VARCHAR(100),
-                        yn_okc_sync_status VARCHAR(50),
-                        yn_okc_sync_at TIMESTAMP WITH TIME ZONE,
-                        is_deleted BOOLEAN DEFAULT FALSE,
-                        created_at_utc TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-                        updated_at_utc TIMESTAMP WITH TIME ZONE,
-                        created_by VARCHAR(100),
-                        updated_by VARCHAR(100)
-                    );
-                    CREATE INDEX idx_sales_date ON sales(sale_date);
-                    CREATE INDEX idx_sales_customer ON sales(customer_id);
-
-                    -- Sale Items tablosu
-                    CREATE TABLE IF NOT EXISTS sale_items (
-                        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                        sale_id UUID NOT NULL REFERENCES sales(id),
-                        product_id UUID NOT NULL REFERENCES products(id),
-                        quantity INTEGER NOT NULL,
-                        unit_price DECIMAL(18,4) NOT NULL,
-                        discount_amount DECIMAL(18,4) DEFAULT 0,
-                        tax_rate DECIMAL(5,2) DEFAULT 18,
-                        tax_amount DECIMAL(18,4) NOT NULL,
-                        total_amount DECIMAL(18,4) NOT NULL,
-                        batch_no VARCHAR(100),
-                        expiry_date DATE,
-                        is_deleted BOOLEAN DEFAULT FALSE,
-                        created_at_utc TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-                        updated_at_utc TIMESTAMP WITH TIME ZONE,
-                        created_by VARCHAR(100),
-                        updated_by VARCHAR(100)
-                    );
-                    CREATE INDEX idx_sale_items_sale ON sale_items(sale_id);
-                    CREATE INDEX idx_sale_items_product ON sale_items(product_id);
-
-                    -- Prescriptions tablosu
-                    CREATE TABLE IF NOT EXISTS prescriptions (
-                        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                        prescription_no VARCHAR(100) UNIQUE NOT NULL,
-                        customer_id UUID REFERENCES customers(id),
-                        doctor_name VARCHAR(200),
-                        doctor_tc VARCHAR(11),
-                        hospital_name VARCHAR(300),
-                        prescription_date DATE,
-                        validity_date DATE,
-                        status VARCHAR(50) DEFAULT 'ACTIVE',
-                        notes TEXT,
-                        is_deleted BOOLEAN DEFAULT FALSE,
-                        created_at_utc TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-                        updated_at_utc TIMESTAMP WITH TIME ZONE,
-                        created_by VARCHAR(100),
-                        updated_by VARCHAR(100)
-                    );
-                    CREATE INDEX idx_prescriptions_customer ON prescriptions(customer_id);
-
-                    -- Prescription Items tablosu
-                    CREATE TABLE IF NOT EXISTS prescription_items (
-                        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                        prescription_id UUID NOT NULL REFERENCES prescriptions(id),
-                        product_id UUID REFERENCES products(id),
-                        drug_name VARCHAR(500) NOT NULL,
-                        quantity INTEGER NOT NULL,
-                        usage_instructions TEXT,
-                        is_dispensed BOOLEAN DEFAULT FALSE,
-                        dispensed_at TIMESTAMP WITH TIME ZONE,
-                        is_deleted BOOLEAN DEFAULT FALSE,
-                        created_at_utc TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-                        updated_at_utc TIMESTAMP WITH TIME ZONE,
-                        created_by VARCHAR(100),
-                        updated_by VARCHAR(100)
-                    );
-                    CREATE INDEX idx_prescription_items_prescription ON prescription_items(prescription_id);
+                    CREATE INDEX idx_tenant_info_gln ON tenant_info(gln);
+                    CREATE INDEX idx_tenant_info_username ON tenant_info(username);
+                    CREATE INDEX idx_tenant_info_email ON tenant_info(email);
                 ";
 
                 using (var cmd = new NpgsqlCommand(createTablesSql, conn))
@@ -258,15 +161,16 @@ public class TenantProvisioningService
             }
 
             // 5. Control Plane'e tenant kaydını güncelle
-            var tenant = await _controlPlaneDb.TenantRecords
-                .FirstOrDefaultAsync(t => t.TenantId == tenantId, ct);
+            var tenant = await _controlPlaneDb.Tenants
+                .FirstOrDefaultAsync(t => t.TId == tenantId, ct);
                 
-            if (tenant != null)
+            if (tenant == null)
             {
-                tenant.TenantConnectionString = tenantConnStr;
-                tenant.Status = "Active";
-                await _controlPlaneDb.SaveChangesAsync(ct);
+                _logger.LogError("Tenant {TenantId} not found in database after creation", tenantId);
+                return (false, "", $"Tenant {tenantId} not found");
             }
+
+            _logger.LogInformation("Tenant {TenantId} found in database", tenantId);
 
             // 6. OTOMATIK ÜRÜN SYNC - Merkezi DB'den yeni tenant'a ürünleri kopyala
             _logger.LogInformation("Starting product sync for new tenant {TenantId}", tenantId);
@@ -344,17 +248,102 @@ public class TenantProvisioningService
         }
     }
 
+    /// <summary>
+    /// Sync tenant_info to tenant database with updated isCompleted flag
+    /// </summary>
+    public async Task<bool> SyncTenantInfoAsync(string tenantId, CancellationToken ct = default)
+    {
+        try
+        {
+            // Get updated tenant from database
+            var tenant = await _controlPlaneDb.Tenants
+                .FirstOrDefaultAsync(t => t.TId == tenantId, ct);
+
+            if (tenant == null)
+            {
+                _logger.LogError("Tenant {TenantId} not found for tenant_info sync", tenantId);
+                return false;
+            }
+
+            // Build connection string
+            var dbSuffix = tenantId.StartsWith("TNT_") ? tenantId.Substring(4) : tenantId;
+            var tenantConnStr = $"Host=127.0.0.1;Port=5432;Database=opas_tenant_{dbSuffix};Username=postgres;Password=postgres";
+
+            using (var tenantConn = new NpgsqlConnection(tenantConnStr))
+            {
+                await tenantConn.OpenAsync(ct);
+                
+                var upsertTenantInfoSql = @"
+                    INSERT INTO tenant_info (
+                        t_id, gln, type, eczane_adi, ili, ilcesi, isactive,
+                        ad, soyad, tc_no, dogum_yili, isnviverified,
+                        email, isemailverified, cep_tel, isceptelverified,
+                        username, password, iscompleted,
+                        kayit_olusturulma_zamani, kayit_guncellenme_zamani, kayit_silinme_zamani
+                    ) VALUES (
+                        @t_id, @gln, @type, @eczane_adi, @ili, @ilcesi, @isactive,
+                        @ad, @soyad, @tc_no, @dogum_yili, @isnviverified,
+                        @email, @isemailverified, @cep_tel, @isceptelverified,
+                        @username, @password, @iscompleted,
+                        @kayit_olusturulma_zamani, @kayit_guncellenme_zamani, @kayit_silinme_zamani
+                    )
+                    ON CONFLICT (t_id) DO UPDATE SET
+                        iscompleted = EXCLUDED.iscompleted,
+                        kayit_guncellenme_zamani = EXCLUDED.kayit_guncellenme_zamani";
+                
+                using (var cmd = new NpgsqlCommand(upsertTenantInfoSql, tenantConn))
+                {
+                    cmd.Parameters.AddWithValue("@t_id", tenant.TId);
+                    cmd.Parameters.AddWithValue("@gln", tenant.Gln);
+                    cmd.Parameters.AddWithValue("@type", tenant.Type);
+                    cmd.Parameters.AddWithValue("@eczane_adi", (object?)tenant.EczaneAdi ?? DBNull.Value);
+                    cmd.Parameters.AddWithValue("@ili", (object?)tenant.Ili ?? DBNull.Value);
+                    cmd.Parameters.AddWithValue("@ilcesi", (object?)tenant.Ilcesi ?? DBNull.Value);
+                    cmd.Parameters.AddWithValue("@isactive", tenant.IsActive);
+                    cmd.Parameters.AddWithValue("@ad", tenant.Ad);
+                    cmd.Parameters.AddWithValue("@soyad", tenant.Soyad);
+                    cmd.Parameters.AddWithValue("@tc_no", (object?)tenant.TcNo ?? DBNull.Value);
+                    cmd.Parameters.AddWithValue("@dogum_yili", tenant.DogumYili.HasValue ? (object)tenant.DogumYili.Value : DBNull.Value);
+                    cmd.Parameters.AddWithValue("@isnviverified", tenant.IsNviVerified);
+                    cmd.Parameters.AddWithValue("@email", tenant.Email);
+                    cmd.Parameters.AddWithValue("@isemailverified", tenant.IsEmailVerified);
+                    cmd.Parameters.AddWithValue("@cep_tel", (object?)tenant.CepTel ?? DBNull.Value);
+                    cmd.Parameters.AddWithValue("@isceptelverified", tenant.IsCepTelVerified);
+                    cmd.Parameters.AddWithValue("@username", tenant.Username);
+                    cmd.Parameters.AddWithValue("@password", tenant.Password);
+                    cmd.Parameters.AddWithValue("@iscompleted", tenant.IsCompleted);
+                    cmd.Parameters.AddWithValue("@kayit_olusturulma_zamani", tenant.KayitOlusturulmaZamani);
+                    cmd.Parameters.AddWithValue("@kayit_guncellenme_zamani", tenant.KayitGuncellenmeZamani.HasValue ? (object)tenant.KayitGuncellenmeZamani.Value : DBNull.Value);
+                    cmd.Parameters.AddWithValue("@kayit_silinme_zamani", tenant.KayitSilinmeZamani.HasValue ? (object)tenant.KayitSilinmeZamani.Value : DBNull.Value);
+                    
+                    await cmd.ExecuteNonQueryAsync(ct);
+                }
+            }
+            
+            _logger.LogInformation("Tenant info synced with isCompleted={IsCompleted} for {TenantId}", 
+                tenant.IsCompleted, tenantId);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to sync tenant info for {TenantId}", tenantId);
+            return false;
+        }
+    }
+
     public async Task<bool> ValidateTenantDatabaseAsync(string tenantId, CancellationToken ct = default)
     {
         try
         {
-            var tenant = await _controlPlaneDb.TenantRecords
-                .FirstOrDefaultAsync(t => t.TenantId == tenantId, ct);
+            var tenant = await _controlPlaneDb.Tenants
+                .FirstOrDefaultAsync(t => t.TId == tenantId, ct);
                 
-            if (tenant == null || string.IsNullOrEmpty(tenant.TenantConnectionString))
+            if (tenant == null)
                 return false;
 
-            using (var conn = new NpgsqlConnection(tenant.TenantConnectionString))
+            // Build connection string for tenant database (TNT_GLN → opas_tenant_GLN)
+            var tenantConnStr = $"Host=127.0.0.1;Port=5432;Database=opas_tenant_{tenantId.Replace("TNT_", "").ToLower()};Username=postgres;Password=postgres";
+            using (var conn = new NpgsqlConnection(tenantConnStr))
             {
                 await conn.OpenAsync(ct);
                 

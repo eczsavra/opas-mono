@@ -36,7 +36,9 @@ import {
   ThumbDown,
   ContactSupport,
   Email,
-  Warning
+  Warning,
+  Visibility,
+  VisibilityOff
 } from '@mui/icons-material'
 import { keyframes } from '@emotion/react'
 import { styled } from '@mui/material/styles'
@@ -279,6 +281,7 @@ export default function Registration() {
   const [mounted, setMounted] = useState(false)
   const [activeStep, setActiveStep] = useState(0)
   const [loading, setLoading] = useState(false)
+  const [showLongProcessWarning, setShowLongProcessWarning] = useState(false)
   
   // Step 1: GLN Validation
   const [gln, setGln] = useState('')
@@ -370,6 +373,10 @@ export default function Registration() {
     isUsernameAvailable: null as boolean | null,
     isUsernameChecking: false
   })
+
+  // Password visibility states
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   
   const [credentialsValidation, setCredentialsValidation] = useState({
     username: { isValid: true, error: '' },
@@ -396,6 +403,9 @@ export default function Registration() {
     message: ''
   })
 
+  // Countdown for redirect
+  const [countdown, setCountdown] = useState(10)
+
   const [registrationError, setRegistrationError] = useState({
     show: false,
     message: ''
@@ -411,6 +421,18 @@ export default function Registration() {
       setGln('868')
     }
   }, [gln.length])
+
+  // Countdown and redirect after successful registration
+  useEffect(() => {
+    if (registrationSuccess.show && countdown > 0) {
+      const timer = setTimeout(() => {
+        setCountdown(countdown - 1)
+      }, 1000)
+      return () => clearTimeout(timer)
+    } else if (registrationSuccess.show && countdown === 0) {
+      window.location.href = '/t-login'
+    }
+  }, [registrationSuccess.show, countdown])
 
   const validateGLN = async (glnValue: string) => {
     if (!glnValue || glnValue.length !== 13) {
@@ -1211,8 +1233,8 @@ export default function Registration() {
       return { isValid: false, error: 'Kullanıcı adı zorunludur' }
     }
     
-    if (username.length < 3 || username.length > 50) {
-      return { isValid: false, error: 'Kullanıcı adı 3-50 karakter arasında olmalıdır' }
+    if (username.length < 4 || username.length > 50) {
+      return { isValid: false, error: 'Kullanıcı adı 4-50 karakter arasında olmalıdır' }
     }
     
     const usernameRegex = /^[a-zA-Z0-9._-]+$/
@@ -1344,9 +1366,8 @@ export default function Registration() {
     const validation = credentialsValidation
     
     return username.trim() && password && confirmPassword &&
-           validation.username.isValid && validation.password.isValid && validation.confirmPassword.isValid
-           // Temporarily bypass username availability check for testing
-           // && credentialsInfo.isUsernameAvailable === true
+           validation.username.isValid && validation.password.isValid && validation.confirmPassword.isValid &&
+           credentialsInfo.isUsernameAvailable === true  // Username must be available
   }
 
   const handleNext = () => {
@@ -1365,6 +1386,14 @@ export default function Registration() {
     }
   }
 
+  // Enter key handler for form submission
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      handleNext()
+    }
+  }
+
   const handleBack = () => {
     setActiveStep((prevStep) => prevStep - 1)
   }
@@ -1372,6 +1401,14 @@ export default function Registration() {
   // Final registration function - calls PharmacistAdmin API
   const handleFinalRegistration = async () => {
     try {
+      setLoading(true)
+      setShowLongProcessWarning(false)
+
+      // Show warning after 4 seconds
+      const warningTimer = setTimeout(() => {
+        setShowLongProcessWarning(true)
+      }, 4000)
+
       const registrationData = {
         username: credentialsInfo.username,
         password: credentialsInfo.password,
@@ -1398,6 +1435,10 @@ export default function Registration() {
 
       const result = await response.json()
 
+      clearTimeout(warningTimer)
+      setLoading(false)
+      setShowLongProcessWarning(false)
+
       if (result.success) {
         // Registration successful
         setRegistrationSuccess({
@@ -1416,6 +1457,8 @@ export default function Registration() {
       }
     } catch (error) {
       console.error('Registration error:', error)
+      setLoading(false)
+      setShowLongProcessWarning(false)
       setRegistrationError({
         show: true,
         message: 'Kayıt işlemi sırasında bir hata oluştu'
@@ -1443,6 +1486,7 @@ export default function Registration() {
                 onChange={(e) => handleGLNDigitChange(index, e.target.value)}
                 onKeyDown={(e) => handleGLNKeyDown(index, e)}
                 onFocus={(e) => e.target.select()}
+                autoFocus={index === 0}
                 inputProps={{
                   maxLength: 1,
                   inputMode: 'numeric',
@@ -1658,7 +1702,7 @@ export default function Registration() {
                     startIcon={<ContactSupport />}
                     onClick={() => {
                       // Kayıt işlemini sonlandır
-                      window.location.href = '/login2'
+                      window.location.href = '/t-login'
                     }}
                     sx={{ borderRadius: 2 }}
                   >
@@ -1712,6 +1756,7 @@ export default function Registration() {
             onChange={(e) => handlePharmacistInfoChange('firstName', e.target.value)}
             error={!pharmacistValidation.firstName.isValid}
             helperText={pharmacistValidation.firstName.error}
+            autoFocus
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -2371,14 +2416,23 @@ export default function Registration() {
               </Typography>
             </Box>
           </Box>
+
+          <Box sx={{ p: 2, bgcolor: 'info.light', borderRadius: 2, mb: 3 }}>
+            <Typography variant="body1" sx={{ color: 'info.contrastText', fontWeight: 600 }}>
+              🔄 Giriş sayfasına yönlendiriliyorsunuz...
+            </Typography>
+            <Typography variant="h4" sx={{ color: 'info.contrastText', mt: 1 }}>
+              {countdown} saniye
+            </Typography>
+          </Box>
           
           <Button
             variant="contained"
             size="large"
-            onClick={() => window.location.href = '/login2'}
+            onClick={() => window.location.href = '/t-login'}
             sx={{ mr: 2 }}
           >
-            Giriş Yap
+            Hemen Giriş Yap
           </Button>
           <Button
             variant="outlined"
@@ -2439,6 +2493,7 @@ export default function Registration() {
                   credentialsInfo.isUsernameAvailable === false ?
                     '❌ Kullanıcı adı zaten alınmış' : ''
           }
+          autoFocus
           inputProps={{ 
             maxLength: 50,
             style: { textTransform: 'lowercase' }
@@ -2462,7 +2517,7 @@ export default function Registration() {
         {/* Password Input */}
         <ModernTextField
           fullWidth
-          type="password"
+          type={showPassword ? "text" : "password"}
           label="Parola"
           value={credentialsInfo.password}
           onChange={(e) => handlePasswordChange(e.target.value)}
@@ -2472,6 +2527,17 @@ export default function Registration() {
             startAdornment: (
               <InputAdornment position="start">
                 <Lock color={credentialsValidation.password.isValid ? "success" : "primary"} />
+              </InputAdornment>
+            ),
+            endAdornment: (
+              <InputAdornment position="end">
+                <IconButton
+                  aria-label="toggle password visibility"
+                  onClick={() => setShowPassword(!showPassword)}
+                  edge="end"
+                >
+                  {showPassword ? <VisibilityOff /> : <Visibility />}
+                </IconButton>
               </InputAdornment>
             ),
           }}
@@ -2517,7 +2583,7 @@ export default function Registration() {
         {/* Confirm Password Input */}
         <ModernTextField
           fullWidth
-          type="password"
+          type={showConfirmPassword ? "text" : "password"}
           label="Parola Tekrarı"
           value={credentialsInfo.confirmPassword}
           onChange={(e) => handleConfirmPasswordChange(e.target.value)}
@@ -2530,6 +2596,17 @@ export default function Registration() {
             startAdornment: (
               <InputAdornment position="start">
                 <Lock color={credentialsValidation.confirmPassword.isValid ? "success" : "primary"} />
+              </InputAdornment>
+            ),
+            endAdornment: (
+              <InputAdornment position="end">
+                <IconButton
+                  aria-label="toggle confirm password visibility"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  edge="end"
+                >
+                  {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
+                </IconButton>
               </InputAdornment>
             ),
           }}
@@ -2553,6 +2630,86 @@ export default function Registration() {
             <strong>Güvenlik:</strong> Parolanız güvenli şekilde şifrelenerek saklanır.
           </Typography>
         </Box>
+
+        {/* Loading State with Warning */}
+        {loading && (
+          <Fade in={loading}>
+            <Box>
+              <Box sx={{ 
+                p: 3, 
+                borderRadius: 2, 
+                bgcolor: 'primary.main', 
+                color: 'white',
+                textAlign: 'center',
+                boxShadow: '0 8px 32px rgba(25, 118, 210, 0.3)'
+              }}>
+                <CircularProgress 
+                  size={48} 
+                  thickness={4}
+                  sx={{ 
+                    color: 'white',
+                    mb: 2,
+                    filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.2))'
+                  }} 
+                />
+                <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
+                  Kaydınız Oluşturuluyor...
+                </Typography>
+                <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                  Eczane veritabanınız hazırlanıyor
+                </Typography>
+              </Box>
+
+              {/* Long Process Warning - shows after 4 seconds */}
+              {showLongProcessWarning && (
+                <Zoom in={showLongProcessWarning}>
+                  <Box sx={{ 
+                    mt: 2,
+                    p: 2.5, 
+                    borderRadius: 2, 
+                    bgcolor: 'warning.light',
+                    border: '2px solid',
+                    borderColor: 'warning.main',
+                    animation: 'pulse 2s ease-in-out infinite',
+                    '@keyframes pulse': {
+                      '0%, 100%': { 
+                        transform: 'scale(1)',
+                        boxShadow: '0 4px 16px rgba(237, 108, 2, 0.2)'
+                      },
+                      '50%': { 
+                        transform: 'scale(1.02)',
+                        boxShadow: '0 6px 24px rgba(237, 108, 2, 0.3)'
+                      }
+                    }
+                  }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <Box sx={{ 
+                        width: 40, 
+                        height: 40, 
+                        borderRadius: '50%', 
+                        bgcolor: 'warning.main',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0
+                      }}>
+                        <Warning sx={{ color: 'white', fontSize: 24 }} />
+                      </Box>
+                      <Box sx={{ flex: 1 }}>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 700, color: 'warning.dark', mb: 0.5 }}>
+                          Bu işlem biraz uzun sürebilir
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: 'warning.dark', opacity: 0.9 }}>
+                          Lütfen sayfayı kapatmayın...
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Box>
+                </Zoom>
+              )}
+            </Box>
+          </Fade>
+        )}
       </Stack>
     </Box>
   )
@@ -2589,7 +2746,7 @@ export default function Registration() {
   if (!mounted) return null
 
   return (
-    <ModernContainer>
+    <ModernContainer onKeyDown={handleKeyDown}>
       {/* Floating Background Icons */}
       <FloatingIcon sx={{ top: '15%', left: '10%', animationDelay: '0s' }}>
         <Store />
@@ -2611,7 +2768,7 @@ export default function Registration() {
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, mb: 2 }}>
               <Button 
                 component="a" 
-                href="/login2"
+                href="/t-login"
                 startIcon={<ArrowBack />}
                 sx={{ 
                   borderRadius: 2,

@@ -44,7 +44,7 @@ public static class AuthRegistrationEndpoints
         });
 
         // GET /auth/register/validate-username?value=...
-        app.MapGet("/auth/register/validate-username", ([FromQuery] string? value) =>
+        app.MapGet("/auth/register/validate-username", async ([FromQuery] string? value, [FromServices] ControlPlaneDbContext db) =>
         {
             // Kurallar:
             // - 4..32 karakter
@@ -88,8 +88,22 @@ public static class AuthRegistrationEndpoints
             if (reserved.Contains(u))
                 return Results.BadRequest(new { ok = false, username = u, error = "reserved username" });
 
-            // (İLERİDE) tekillik kontrolü ControlPlane’de yapılacak – TODO
-            return Results.Ok(new { ok = true, username = u });
+            // Database'de username kontrolü
+            try
+            {
+                var exists = await db.TenantsUsernames
+                    .AsNoTracking()
+                    .AnyAsync(x => x.Username == u.ToLowerInvariant());
+                
+                if (exists)
+                    return Results.Ok(new { ok = true, username = u, available = false, message = "username already taken" });
+                
+                return Results.Ok(new { ok = true, username = u, available = true, message = "username available" });
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem($"Database error: {ex.Message}", statusCode: 500);
+            }
         });
 
 

@@ -48,8 +48,18 @@ public class TenantProductSyncService
 
         try
         {
-            // Tenant ID'den GLN çıkar (TNT_229714 → 229714)
-            var gln = tenantId.StartsWith("TNT_") ? tenantId.Substring(4) : tenantId;
+            // Tenant'ın gerçek GLN'sini Tenants tablosundan al
+            var tenant = await _controlPlaneDb.Tenants
+                .Where(t => t.TId == tenantId)
+                .FirstOrDefaultAsync(ct);
+
+            if (tenant == null)
+            {
+                _logger.LogError("Tenant {TenantId} not found", tenantId);
+                return 0;
+            }
+
+            var gln = tenant.Gln;
             
             // GLN Registry'den eczane bilgilerini al
             var pharmacy = await _publicDb.GlnRegistry
@@ -62,8 +72,9 @@ public class TenantProductSyncService
                 return 0;
             }
 
-            // Connection string'i GLN'den oluştur
-            var tenantConnectionString = $"Host=127.0.0.1;Port=5432;Database=opas_tenant_{gln};Username=postgres;Password=postgres";
+            // Connection string'i Tenant ID'den oluştur (TNT_GLN → opas_tenant_GLN)
+            var dbSuffix = tenantId.StartsWith("TNT_") ? tenantId.Substring(4) : tenantId;
+            var tenantConnectionString = $"Host=127.0.0.1;Port=5432;Database=opas_tenant_{dbSuffix};Username=postgres;Password=postgres";
             
             _logger.LogInformation("Syncing to pharmacy: {PharmacyName} (GLN: {Gln})", 
                 pharmacy.CompanyName, pharmacy.Gln);
@@ -181,8 +192,7 @@ public class TenantProductSyncService
                         DrugName = centralProduct.DrugName,
                         ManufacturerGln = centralProduct.ManufacturerGln,
                         ManufacturerName = centralProduct.ManufacturerName,
-                        IsActive = centralProduct.Active,
-                        IsImported = centralProduct.Imported
+                        IsActive = centralProduct.Active
                     };
 
                     tenantDb.Products.Add(tenantProduct);
@@ -195,7 +205,6 @@ public class TenantProductSyncService
                     tenantProduct.ManufacturerGln = centralProduct.ManufacturerGln;
                     tenantProduct.ManufacturerName = centralProduct.ManufacturerName;
                     tenantProduct.IsActive = centralProduct.Active;
-                    tenantProduct.IsImported = centralProduct.Imported;
                     
                     // NOT: Price ve PriceHistory kasıtlı olarak güncellenmedi - tenant'ın customization'ını koru
                     

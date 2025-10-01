@@ -44,28 +44,18 @@ public class TenantProduct : BaseEntity
     /// </summary>
     public bool IsActive { get; set; } = true;
 
-    /// <summary>
-    /// ITS'den import edilip edilmediği
-    /// </summary>
-    public bool IsImported { get; set; } = false;
+/// <summary>
+/// Son ITS sync zamanı
+/// </summary>
+public DateTime? LastItsSyncAt { get; set; }
 
-    /// <summary>
-    /// Son ITS sync zamanı
-    /// </summary>
-    public DateTime? LastItsSyncAt { get; set; }
+/// <summary>
+/// Kaydı oluşturan kullanıcı
+/// </summary>
+public string? CreatedBy { get; set; }
 
-    /// <summary>
-    /// ITS'den gelen raw data (JSON)
-    /// </summary>
-    public string? ItsRawData { get; set; }
-
-    /// <summary>
-    /// Kaydı oluşturan kullanıcı
-    /// </summary>
-    public string? CreatedBy { get; set; }
-
-    /// <summary>
-    /// Kaydı güncelleyen kullanıcı
-    /// </summary>
-    public string? UpdatedBy { get; set; }
+/// <summary>
+/// Kaydı güncelleyen kullanıcı
+/// </summary>
+public string? UpdatedBy { get; set; }
 }

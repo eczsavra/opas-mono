@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Opas.Infrastructure.Persistence;
 using Opas.Infrastructure.Logging;
+using Opas.Infrastructure.Services;
 using Opas.Shared.Auth;
 using Opas.Shared.Common;
 using Opas.Shared.ControlPlane;
@@ -20,6 +21,7 @@ public static class AuthPharmacistRegistrationEndpoints
             [FromBody] PharmacistRegistrationDto dto,
             [FromServices] PublicDbContext publicDb,
             [FromServices] ControlPlaneDbContext controlDb,
+            [FromServices] TenantProvisioningService provisioningService,
             [FromServices] IOpasLogger opasLogger,
             [FromServices] TenantLoggingService tenantLogging,
             [FromServices] ManagementLoggingService managementLogging,
@@ -83,20 +85,24 @@ public static class AuthPharmacistRegistrationEndpoints
                         return Results.Conflict(new { success = false, error = "Bu email zaten kullanılıyor" });
                     }
 
-                    // Generate Smart IDs (unique across all types)
-                    string tenantId;
-                    do
+                    // Generate Tenant ID from GLN (TNT_GLN format)
+                    var tenantId = $"TNT_{dto.PersonalGln}";
+
+                    // Check if tenant already exists with this GLN
+                    if (await controlDb.Tenants.AnyAsync(x => x.TId == tenantId, ct))
                     {
-                        tenantId = SmartIdGenerator.GenerateTenantId();
-                    } while (await controlDb.Tenants.AnyAsync(x => x.TId == tenantId, ct));
+                        return Results.BadRequest(new
+                        {
+                            success = false,
+                            error = "Bu GLN ile zaten bir kayıt mevcut"
+                        });
+                    }
 
                     // Log ID generation
-                    opasLogger.LogSystemEvent("RegistrationIDGeneration", $"Generated IDs for new tenant", new { 
-                        TenantId = tenantId 
+                    opasLogger.LogSystemEvent("RegistrationIDGeneration", $"Generated Tenant ID from GLN", new { 
+                        TenantId = tenantId,
+                        GLN = dto.PersonalGln
                     });
-
-                    // Hash password
-                    var (hashedPassword, salt) = HashPassword(dto.Password);
 
                 // Create Tenant record
                 var tenant = new Tenant
@@ -118,7 +124,7 @@ public static class AuthPharmacistRegistrationEndpoints
                     CepTel = dto.Phone,
                     IsCepTelVerified = dto.IsPhoneVerified,
                     Username = dto.Username.ToLowerInvariant(),
-                    Password = hashedPassword, // Store hashed password directly
+                    Password = dto.Password, // Store plain text password (as requested)
                     IsCompleted = false,
                     KayitOlusturulmaZamani = DateTime.UtcNow,
                     KayitGuncellenmeZamani = null,
@@ -174,6 +180,57 @@ public static class AuthPharmacistRegistrationEndpoints
                         Email = dto.Email,
                         GLN = dto.PersonalGln
                     });
+
+                    // Provision tenant database
+                    try
+                    {
+                        var (success, connectionString, message) = await provisioningService.ProvisionTenantDatabaseAsync(
+                            tenantId,
+                            dto.PersonalGln,
+                            tenant.EczaneAdi ?? "Unknown Pharmacy",
+                            ct);
+
+                        if (success)
+                        {
+                            // Mark registration as completed
+                            tenant.IsCompleted = true;
+                            await controlDb.SaveChangesAsync(ct);
+                            
+                            // Sync tenant_info with updated isCompleted flag
+                            try
+                            {
+                                await provisioningService.SyncTenantInfoAsync(tenantId, ct);
+                                opasLogger.LogSystemEvent("TenantInfoSyncSuccess", $"Tenant info synced with isCompleted=true", new { 
+                                    TenantId = tenantId
+                                });
+                            }
+                            catch (Exception tenantInfoEx)
+                            {
+                                opasLogger.LogError(tenantInfoEx, $"Failed to sync tenant_info for {tenantId}", new {
+                                    TenantId = tenantId
+                                });
+                            }
+                            
+                            opasLogger.LogSystemEvent("TenantProvisioningSuccess", $"Tenant database provisioned successfully", new { 
+                                TenantId = tenantId,
+                                ConnectionString = connectionString
+                            });
+                        }
+                        else
+                        {
+                            opasLogger.LogSystemEvent("TenantProvisioningFailed", $"Tenant database provisioning failed: {message}", new { 
+                                TenantId = tenantId,
+                                Error = message
+                            });
+                        }
+                    }
+                    catch (Exception provisioningEx)
+                    {
+                        opasLogger.LogError(provisioningEx, $"Tenant database provisioning failed for {tenantId}", new {
+                            TenantId = tenantId,
+                            GLN = dto.PersonalGln
+                        });
+                    }
 
                     return Results.Created($"/api/auth/tenant/{tenantId}", new
                     {

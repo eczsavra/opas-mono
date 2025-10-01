@@ -5,15 +5,15 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const username = searchParams.get('username')
 
-    if (!username || username.length < 3) {
+    if (!username || username.length < 4) {
       return NextResponse.json(
-        { ok: false, error: 'Kullanıcı adı en az 3 karakter olmalıdır' },
+        { ok: false, error: 'Kullanıcı adı en az 4 karakter olmalıdır' },
         { status: 400 }
       )
     }
 
     // Username format kontrolü
-    const usernameRegex = /^[a-zA-Z0-9_.-]{3,50}$/
+    const usernameRegex = /^[a-zA-Z0-9_.-]{4,50}$/
     if (!usernameRegex.test(username)) {
       return NextResponse.json(
         { ok: false, error: 'Kullanıcı adı sadece harf, rakam, nokta, tire ve alt çizgi içerebilir' },
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Backend API'ye username kontrolü için çağrı yap
-    const backendResponse = await fetch(`http://127.0.0.1:5080/api/auth/check-username?username=${encodeURIComponent(username)}`, {
+    const backendResponse = await fetch(`http://127.0.0.1:5080/auth/register/validate-username?value=${encodeURIComponent(username)}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

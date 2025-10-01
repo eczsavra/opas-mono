@@ -41,6 +41,22 @@ public class NviService
     {
         try
         {
+            // TEMPORARY BYPASS: NVI servisi kapalı olduğu için Development'ta bypass
+            if (_configuration.GetValue<bool>("Integrations:Nvi:BypassInDevelopment", false))
+            {
+                _logger.LogWarning("NVI bypass enabled in Development mode - returning valid result");
+                return new NviValidationResult
+                {
+                    IsValid = true,
+                    TcNumber = tcNumber,
+                    FirstName = firstName,
+                    LastName = lastName,
+                    BirthYear = birthYear,
+                    ResponseTime = DateTime.UtcNow,
+                    ErrorMessage = null
+                };
+            }
+
             _logger.LogInformation("NVI kimlik doğrulama başlatıldı: TC={TC}", tcNumber);
 
             // SOAP envelope oluştur

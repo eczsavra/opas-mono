@@ -30,10 +30,21 @@ const validateGLNFromDB = async (gln: string) => {
     const result = await response.json()
     console.log(`✅ Backend response:`, result)
     
-    // DEBUG: Return raw response temporarily
+    // Check if GLN already registered
+    if (result && result.alreadyRegistered) {
+      return {
+        found: true,
+        alreadyRegistered: true,
+        data: null,
+        error: result.message || 'Bu GLN ile zaten kayıt oluşturulmuş'
+      }
+    }
+    
+    // Return GLN data if found
     if (result && result.gln) {
       return {
         found: true,
+        alreadyRegistered: false,
         data: {
           gln: result.gln,
           companyName: result.companyName,
@@ -48,7 +59,7 @@ const validateGLNFromDB = async (gln: string) => {
       }
     }
     
-    return { found: false, data: null, error: `Debug: ${JSON.stringify(result)}` }
+    return { found: false, alreadyRegistered: false, data: null, error: `Debug: ${JSON.stringify(result)}` }
     
   } catch (error) {
     console.error('GLN Backend API Error:', error)
@@ -128,10 +139,22 @@ export async function GET(request: NextRequest) {
     // Validate from database
     const result = await validateGLNFromDB(gln)
 
+    if (result.alreadyRegistered) {
+      // GLN already registered
+      return NextResponse.json({
+        ok: true,
+        found: true,
+        alreadyRegistered: true,
+        data: null,
+        message: result.error || 'Bu GLN ile zaten kayıt oluşturulmuş. Lütfen giriş yapınız.'
+      })
+    }
+
     if (result.found && result.data) {
       return NextResponse.json({
         ok: true,
         found: true,
+        alreadyRegistered: false,
         data: result.data,
         message: 'GLN doğrulandı - Gerçek verilerden (OPAS Backend)'
       })
@@ -141,6 +164,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       ok: true,
       found: false,
+      alreadyRegistered: false,
       data: null,
       message: result.error || 'GLN bulunamadı'
     })

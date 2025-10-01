@@ -59,9 +59,7 @@ public sealed class TenantDbContext : DbContext
             
             // ITS fields
             e.Property(x => x.IsActive).HasColumnName("is_active");
-            e.Property(x => x.IsImported).HasColumnName("is_imported");
             e.Property(x => x.LastItsSyncAt).HasColumnName("last_its_sync_at");
-            e.Property(x => x.ItsRawData).HasColumnName("its_raw_data").HasColumnType("text");
             
             // User tracking fields
             e.Property(x => x.CreatedBy).HasColumnName("created_by").HasMaxLength(100);
