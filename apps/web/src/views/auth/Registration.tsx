@@ -1400,12 +1400,14 @@ export default function Registration() {
 
   // Final registration function - calls PharmacistAdmin API
   const handleFinalRegistration = async () => {
+    let warningTimer: NodeJS.Timeout | null = null
+    
     try {
       setLoading(true)
-      setShowLongProcessWarning(false)
+      // Don't reset warning at start - let it show after 4 seconds
 
       // Show warning after 4 seconds
-      const warningTimer = setTimeout(() => {
+      warningTimer = setTimeout(() => {
         setShowLongProcessWarning(true)
       }, 4000)
 
@@ -1435,10 +1437,6 @@ export default function Registration() {
 
       const result = await response.json()
 
-      clearTimeout(warningTimer)
-      setLoading(false)
-      setShowLongProcessWarning(false)
-
       if (result.success) {
         // Registration successful
         setRegistrationSuccess({
@@ -1457,12 +1455,16 @@ export default function Registration() {
       }
     } catch (error) {
       console.error('Registration error:', error)
-      setLoading(false)
-      setShowLongProcessWarning(false)
       setRegistrationError({
         show: true,
         message: 'Kayıt işlemi sırasında bir hata oluştu'
       })
+    } finally {
+      if (warningTimer) {
+        clearTimeout(warningTimer)
+      }
+      setLoading(false)
+      setShowLongProcessWarning(false)
     }
   }
 

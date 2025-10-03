@@ -25,20 +25,23 @@ public static class AuthEmailCheckEndpoints
                 return Results.BadRequest(new { found = false, error = "Invalid email format" });
             }
 
-            // Database'de email ile kullanıcı ara
-            var pharmacist = await db.PharmacistAdmins
+            // Database'de email ile tenant ara
+            var tenant = await db.Tenants
                 .AsNoTracking()
-                .Where(p => p.Email == email.ToLowerInvariant())
-                .Select(p => new { 
-                    p.Username, 
-                    p.FirstName, 
-                    p.LastName, 
-                    p.Email,
-                    p.IsActive 
+                .Where(t => t.Email == email.ToLowerInvariant())
+                .Select(t => new { 
+                    t.Username, 
+                    t.Ad, 
+                    t.Soyad, 
+                    t.Email,
+                    t.Gln,
+                    t.IsCompleted 
                 })
                 .FirstOrDefaultAsync(ct);
 
-            if (pharmacist == null)
+            Console.WriteLine($"🔍 DEBUG - Tenant from DB: Username={tenant?.Username}, Gln={tenant?.Gln}, Email={tenant?.Email}");
+
+            if (tenant == null)
             {
                 return Results.Ok(new { 
                     found = false, 
@@ -47,23 +50,28 @@ public static class AuthEmailCheckEndpoints
                 });
             }
 
-            if (!pharmacist.IsActive)
+            if (!tenant.IsCompleted)
             {
                 return Results.Ok(new { 
                     found = false, 
                     email = email.ToLowerInvariant(),
-                    message = "Bu hesap aktif değil"
+                    message = "Bu hesabın kaydı tamamlanmamış"
                 });
             }
 
-            return Results.Ok(new { 
+            var response = new { 
                 found = true, 
-                email = pharmacist.Email,
-                username = pharmacist.Username,
-                firstName = pharmacist.FirstName,
-                lastName = pharmacist.LastName,
-                message = $"Kullanıcı bulundu: {pharmacist.FirstName} {pharmacist.LastName}"
-            });
+                email = tenant.Email,
+                username = tenant.Username,
+                firstName = tenant.Ad,
+                lastName = tenant.Soyad,
+                gln = tenant.Gln,
+                message = $"Kullanıcı bulundu: {tenant.Ad} {tenant.Soyad}"
+            };
+            
+            Console.WriteLine($"🔍 DEBUG - Response object: {System.Text.Json.JsonSerializer.Serialize(response)}");
+            
+            return Results.Ok(response);
         })
         .WithName("CheckEmailExists")
         .WithOpenApi();

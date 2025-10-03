@@ -4,8 +4,7 @@ using Opas.Infrastructure.Persistence;
 using Opas.Infrastructure.Logging;
 using Opas.Shared.ControlPlane;
 using Opas.Shared.Logging;
-using System.Security.Cryptography;
-using System.Text;
+// Removed unused imports for password hashing
 
 namespace Opas.Api.Endpoints;
 
@@ -36,47 +35,55 @@ public static class AuthLoginEndpoints
                     return Results.BadRequest(new { success = false, error = "Kullanıcı adı ve şifre gereklidir" });
                 }
 
-                // Kullanıcıyı bul (username veya email ile)
-                var pharmacist = await db.PharmacistAdmins
+                // Kullanıcıyı bul (username veya email ile) - tenants tablosundan
+                var tenant = await db.Tenants
                     .AsNoTracking()
-                    .Where(p => p.Username == request.Username.ToLowerInvariant() || p.Email == request.Username.ToLowerInvariant())
+                    .Where(t => t.Username == request.Username.ToLowerInvariant() || t.Email == request.Username.ToLowerInvariant())
                     .FirstOrDefaultAsync();
 
-                if (pharmacist == null)
+                if (tenant == null)
                 {
                     opasLogger.LogUserLogin(request.Username, clientIP, false, "User not found");
                     await dbLogging.LogUserLoginAsync(request.Username, "unknown", clientIP, httpContext.Request.Headers.UserAgent.ToString(), false, "User not found");
                     return Results.Ok(new { success = false, error = "Kullanıcı adı veya şifre hatalı" });
                 }
 
-                // Şifre kontrolü
-                var passwordValid = VerifyPassword(request.Password, pharmacist.PasswordHash, pharmacist.PasswordSalt);
+                // Şifre kontrolü (plain text karşılaştırma)
+                var passwordValid = request.Password == tenant.Password;
                 
                 if (!passwordValid)
                 {
-                    opasLogger.LogUserLogin(pharmacist.Username, clientIP, false, "Invalid password");
-                    await dbLogging.LogUserLoginAsync(pharmacist.Username, pharmacist.TenantId, clientIP, httpContext.Request.Headers.UserAgent.ToString(), false, "Invalid password");
+                    opasLogger.LogUserLogin(tenant.Username, clientIP, false, "Invalid password");
+                    await dbLogging.LogUserLoginAsync(tenant.Username, tenant.TId, clientIP, httpContext.Request.Headers.UserAgent.ToString(), false, "Invalid password");
                     return Results.Ok(new { success = false, error = "Kullanıcı adı veya şifre hatalı" });
                 }
 
                 // Aktif kullanıcı kontrolü
-                if (!pharmacist.IsActive)
+                if (!tenant.IsActive)
                 {
-                    opasLogger.LogUserLogin(pharmacist.Username, clientIP, false, "Account inactive");
-                    await dbLogging.LogUserLoginAsync(pharmacist.Username, pharmacist.TenantId, clientIP, httpContext.Request.Headers.UserAgent.ToString(), false, "Account inactive");
+                    opasLogger.LogUserLogin(tenant.Username, clientIP, false, "Account inactive");
+                    await dbLogging.LogUserLoginAsync(tenant.Username, tenant.TId, clientIP, httpContext.Request.Headers.UserAgent.ToString(), false, "Account inactive");
                     return Results.Ok(new { success = false, error = "Hesabınız aktif değil. Lütfen yöneticinizle iletişime geçin" });
                 }
 
+                // Kayıt tamamlanmış mı kontrolü
+                if (!tenant.IsCompleted)
+                {
+                    opasLogger.LogUserLogin(tenant.Username, clientIP, false, "Registration not completed");
+                    await dbLogging.LogUserLoginAsync(tenant.Username, tenant.TId, clientIP, httpContext.Request.Headers.UserAgent.ToString(), false, "Registration not completed");
+                    return Results.Ok(new { success = false, error = "Kayıt işleminiz henüz tamamlanmamış. Lütfen kayıt işlemini tamamlayın" });
+                }
+
                 // Son giriş zamanını güncelle
-                pharmacist.LastLoginAt = DateTime.UtcNow;
-                db.PharmacistAdmins.Update(pharmacist);
+                tenant.KayitGuncellenmeZamani = DateTime.UtcNow;
+                db.Tenants.Update(tenant);
                 await db.SaveChangesAsync();
 
                 // Başarılı giriş logla
-                opasLogger.LogUserLogin(pharmacist.Username, clientIP, true);
+                opasLogger.LogUserLogin(tenant.Username, clientIP, true);
                 
                 // Database'e log kaydet
-                await dbLogging.LogUserLoginAsync(pharmacist.Username, pharmacist.TenantId, clientIP, httpContext.Request.Headers.UserAgent.ToString(), true);
+                await dbLogging.LogUserLoginAsync(tenant.Username, tenant.TId, clientIP, httpContext.Request.Headers.UserAgent.ToString(), true);
 
                 // Başarılı giriş response
                 return Results.Ok(new
@@ -85,18 +92,20 @@ public static class AuthLoginEndpoints
                     message = "Giriş başarılı",
                     user = new
                     {
-                        pharmacistId = pharmacist.PharmacistId,
-                        username = pharmacist.Username,
-                        email = pharmacist.Email,
-                        firstName = pharmacist.FirstName,
-                        lastName = pharmacist.LastName,
-                        tenantId = pharmacist.TenantId,
-                        tenantStatus = pharmacist.TenantStatus,
-                        role = pharmacist.Role,
-                        isEmailVerified = pharmacist.IsEmailVerified,
-                        isPhoneVerified = pharmacist.IsPhoneVerified,
-                        isNviVerified = pharmacist.IsNviVerified,
-                        lastLoginAt = pharmacist.LastLoginAt
+                        tenantId = tenant.TId,
+                        username = tenant.Username,
+                        email = tenant.Email,
+                        firstName = tenant.Ad,
+                        lastName = tenant.Soyad,
+                        gln = tenant.Gln,
+                        eczaneAdi = tenant.EczaneAdi,
+                        ili = tenant.Ili,
+                        ilcesi = tenant.Ilcesi,
+                        isEmailVerified = tenant.IsEmailVerified,
+                        isCepTelVerified = tenant.IsCepTelVerified,
+                        isNviVerified = tenant.IsNviVerified,
+                        isCompleted = tenant.IsCompleted,
+                        lastLoginAt = tenant.KayitGuncellenmeZamani
                     }
                 });
             }
@@ -125,17 +134,17 @@ public static class AuthLoginEndpoints
                     return Results.BadRequest(new { success = false, error = "Kullanıcı adı gereklidir" });
                 }
 
-                // Kullanıcıyı bul
-                var pharmacist = await db.PharmacistAdmins
+                // Kullanıcıyı bul - tenants tablosundan
+                var tenant = await db.Tenants
                     .AsNoTracking()
-                    .Where(p => p.Username == request.Username.ToLowerInvariant())
+                    .Where(t => t.Username == request.Username.ToLowerInvariant())
                     .FirstOrDefaultAsync();
 
                 // Log kaydet (kullanıcı var olsun ya da olmasın)
                 opasLogger.LogUserLogout(request.Username, clientIP);
                 await dbLogging.LogUserLogoutAsync(
                     request.Username, 
-                    pharmacist?.TenantId ?? "unknown", 
+                    tenant?.TId ?? "unknown", 
                     clientIP
                 );
 
@@ -158,9 +167,9 @@ public static class AuthLoginEndpoints
                 return Results.BadRequest(new { success = false, error = "Kullanıcı adı gereklidir" });
             }
 
-            var exists = await db.PharmacistAdmins
+            var exists = await db.Tenants
                 .AsNoTracking()
-                .AnyAsync(p => p.Username == username.ToLowerInvariant());
+                .AnyAsync(t => t.Username == username.ToLowerInvariant());
 
             return Results.Ok(new
             {
@@ -174,21 +183,8 @@ public static class AuthLoginEndpoints
         .WithDescription("Giriş sırasında kullanıcı adının varlığını kontrol eder");
     }
 
-    private static bool VerifyPassword(string password, string hash, string salt)
-    {
-        try
-        {
-            var trimmedSalt = salt.Length > 128 ? salt.Substring(0, 128) : salt;
-            using var hmac = new HMACSHA512(Convert.FromBase64String(trimmedSalt));
-            var computedHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(password));
-            return computedHash.SequenceEqual(Convert.FromBase64String(hash));
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"🔐 Hash verification error: {ex.Message}");
-            return false;
-        }
-    }
+    // Password verification method removed - now using plain text comparison
+    // private static bool VerifyPassword(string password, string hash, string salt) - no longer needed
 }
 
 public record LoginRequest(

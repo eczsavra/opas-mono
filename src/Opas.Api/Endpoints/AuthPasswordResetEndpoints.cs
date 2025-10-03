@@ -3,8 +3,6 @@ using Microsoft.EntityFrameworkCore;
 using Opas.Infrastructure.Persistence;
 using Opas.Infrastructure.Logging;
 using Opas.Shared.Logging;
-using System.Security.Cryptography;
-using System.Text;
 
 namespace Opas.Api.Endpoints;
 
@@ -46,11 +44,11 @@ public static class AuthPasswordResetEndpoints
                 }
 
                 // Kullanıcıyı bul
-                var pharmacist = await db.PharmacistAdmins
-                    .Where(p => p.Username == request.Username.ToLowerInvariant())
+                var tenant = await db.Tenants
+                    .Where(t => t.Username == request.Username.ToLowerInvariant())
                     .FirstOrDefaultAsync();
 
-                if (pharmacist == null)
+                if (tenant == null)
                 {
                     opasLogger.LogSystemEvent("PasswordResetUserNotFound", $"Password reset failed - user not found: {request.Username}", new {
                         Username = request.Username,
@@ -60,43 +58,45 @@ public static class AuthPasswordResetEndpoints
                 }
 
                 // Log password change attempt
-                opasLogger.LogPasswordChange(pharmacist.Username, clientIP, true, "Password reset initiated");
+                opasLogger.LogPasswordChange(tenant.Username, clientIP, true, "Password reset initiated");
 
-                // Yeni şifre hash'le
-                var (hash, salt) = HashPassword(request.NewPassword);
-                
-                // Şifreyi güncelle
-                pharmacist.PasswordHash = hash;
-                pharmacist.PasswordSalt = salt;
-                pharmacist.UpdatedAt = DateTime.UtcNow;
+                // Şifreyi güncelle (plain text - tenant tablosunda hash yok)
+                tenant.Password = request.NewPassword;
+                tenant.KayitGuncellenmeZamani = DateTime.UtcNow;
 
                 await db.SaveChangesAsync();
 
+                // Tenant DB'deki tenant_info tablosunu da güncelle
+                var gln = tenant.Gln;
+                var tenantDbName = $"opas_tenant_{gln}";
+                var baseConnectionString = db.Database.GetConnectionString();
+                var tenantConnectionString = baseConnectionString?.Replace("Database=opas_control", $"Database={tenantDbName}");
+
+                Console.WriteLine($"🔍 DEBUG - Tenant DB update: GLN={gln}, DB={tenantDbName}");
+                Console.WriteLine($"🔍 DEBUG - Connection: {tenantConnectionString}");
+
+                using var tenantConnection = new Npgsql.NpgsqlConnection(tenantConnectionString);
+                await tenantConnection.OpenAsync();
+
+                using var updateCommand = new Npgsql.NpgsqlCommand(
+                    "UPDATE tenant_info SET password = @password, kayit_guncellenme_zamani = NOW() WHERE username = @username",
+                    tenantConnection);
+                
+                updateCommand.Parameters.AddWithValue("@password", request.NewPassword);
+                updateCommand.Parameters.AddWithValue("@username", tenant.Username);
+                
+                var rowsAffected = await updateCommand.ExecuteNonQueryAsync();
+
+                Console.WriteLine($"🔍 DEBUG - SQL executed, rows affected: {rowsAffected}");
+
                 // Log successful password reset
-                opasLogger.LogPasswordChange(pharmacist.Username, clientIP, true, "Password reset completed successfully");
-
-                // Log to management system
-                managementLogging.LogGlobalSecurity("PasswordReset", $"Password reset completed for user {pharmacist.Username}", new {
-                    Username = pharmacist.Username,
-                    PharmacistId = pharmacist.PharmacistId,
-                    TenantId = pharmacist.TenantId,
-                    IP = clientIP
-                });
-
-                // Log to tenant-specific logs
-                tenantLogging.LogTenantSecurity(pharmacist.TenantId, pharmacist.PharmacistId, "PasswordReset", clientIP, new {
-                    Username = pharmacist.Username,
-                    IP = clientIP
-                });
-
-                // Database'e log kaydet
-                await dbLogging.LogPasswordResetAsync(pharmacist.Username, pharmacist.TenantId, clientIP, true);
+                opasLogger.LogPasswordChange(tenant.Username, clientIP, true, "Password reset completed successfully");
 
                 return Results.Ok(new
                 {
                     success = true,
                     message = "Şifre başarıyla sıfırlandı",
-                    username = pharmacist.Username
+                    username = tenant.Username
                 });
             }
         })
@@ -105,19 +105,6 @@ public static class AuthPasswordResetEndpoints
         .WithDescription("Test amaçlı şifre sıfırlama endpoint'i");
     }
 
-    private static (string hash, string salt) HashPassword(string password)
-    {
-        // 64 byte (512 bit) key oluştur - Base64'te ~88 karakter
-        using var rng = System.Security.Cryptography.RandomNumberGenerator.Create();
-        var keyBytes = new byte[64];
-        rng.GetBytes(keyBytes);
-        var salt = Convert.ToBase64String(keyBytes);
-        
-        using var hmac = new HMACSHA512(keyBytes);
-        var hash = Convert.ToBase64String(hmac.ComputeHash(Encoding.UTF8.GetBytes(password)));
-        
-        return (hash, salt);
-    }
 }
 
 public record PasswordResetRequest(

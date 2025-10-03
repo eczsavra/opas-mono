@@ -202,6 +202,8 @@ export default function ForgotPassword() {
   const [verificationCode, setVerificationCode] = useState('')
   const [codeDigits, setCodeDigits] = useState<string[]>(Array(6).fill(''))
   const [countdown, setCountdown] = useState(0)
+  const [phoneLastFour, setPhoneLastFour] = useState('')
+  const [phoneVerified, setPhoneVerified] = useState(false)
   
   // Step 2: New Password
   const [newPassword, setNewPassword] = useState('')
@@ -305,13 +307,15 @@ export default function ForgotPassword() {
         }
         
         const result = await response.json()
+        console.log('📧 Email Check Result:', result)
+        
         if (!result.found) {
           setError('Bu email adresi ile kayıtlı kullanıcı bulunamadı.')
           setLoading(false)
           return
         }
         
-        // Kullanıcı bulundu, username'i sakla
+        // Kullanıcı bulundu, username'i sakla ve telefon bilgisini al
         setUsername(result.username)
         
         // ÇIFT DOĞRULAMA: GLN kontrolü de yap
@@ -323,21 +327,17 @@ export default function ForgotPassword() {
           return
         }
         
-        // Backend'den GLN'in var olup olmadığını kontrol et
-        const glnResponse = await fetch(`/api/opas/control/gln/exists?value=${encodeURIComponent(enteredGln)}`, {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' }
+        // GLN'in email ile aynı tenant'a ait olup olmadığını kontrol et
+        console.log('🔍 GLN Karşılaştırma:', { 
+          backendGln: result.gln, 
+          enteredGln: enteredGln,
+          backendType: typeof result.gln,
+          enteredType: typeof enteredGln,
+          equal: result.gln === enteredGln
         })
         
-        if (!glnResponse.ok) {
-          setError('GLN kontrolü başarısız. Lütfen tekrar deneyin.')
-          setLoading(false)
-          return
-        }
-        
-        const glnResult = await glnResponse.json()
-        if (!glnResult.ok || !glnResult.exists) {
-          setError('GLN numarası bu email ile eşleşmiyor!')
+        if (result.gln !== enteredGln) {
+          setError(`GLN numarası bu email ile eşleşmiyor! Beklenen: ${result.gln}, Girilen: ${enteredGln}`)
           setLoading(false)
           return
         }
@@ -345,6 +345,39 @@ export default function ForgotPassword() {
         console.log('✅ ÇIFT DOĞRULAMA BAŞARILI - Email + GLN:', { email, gln: enteredGln })
         
       } else if (activeStep === 1) {
+        // Önce telefon son 4 hane kontrolü
+        if (!phoneVerified) {
+          if (phoneLastFour.length !== 4) {
+            setError('Telefon numaranızın son 4 hanesini giriniz!')
+            setLoading(false)
+            return
+          }
+          
+          // Backend'den telefon son 4 hane kontrolü
+          const phoneResponse = await fetch(`/api/opas/auth/verify-phone-last4?username=${encodeURIComponent(username)}&lastFour=${encodeURIComponent(phoneLastFour)}`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' }
+          })
+          
+          if (!phoneResponse.ok) {
+            setError('Telefon kontrolü başarısız. Lütfen tekrar deneyin.')
+            setLoading(false)
+            return
+          }
+          
+          const phoneResult = await phoneResponse.json()
+          if (!phoneResult.valid) {
+            setError('Telefon numaranızın son 4 hanesi hatalı!')
+            setLoading(false)
+            return
+          }
+          
+          setPhoneVerified(true)
+          setSuccess('Telefon doğrulandı! Şimdi doğrulama yöntemini seçebilirsiniz.')
+          setLoading(false)
+          return
+        }
+        
         // Doğrulama kodu kontrolü
         const enteredCode = codeDigits.join('')
         const expectedCode = verificationMethod === 'email' ? '123456' : '654321'
@@ -526,30 +559,57 @@ export default function ForgotPassword() {
               Güvenlik Doğrulaması
             </Typography>
             <Stack spacing={3}>
-              <Box>
-                <Typography variant="subtitle2" sx={{ mb: 2 }}>
-                  Doğrulama Yöntemi Seçin:
-                </Typography>
-                <Stack direction="row" spacing={2}>
-                  <Chip
-                    icon={<Email />}
-                    label="E-posta"
-                    clickable
-                    color={verificationMethod === 'email' ? 'primary' : 'default'}
-                    onClick={() => setVerificationMethod('email')}
+              {!phoneVerified ? (
+                <Box>
+                  <Typography variant="subtitle2" sx={{ mb: 2 }}>
+                    Telefon Numarası Doğrulaması:
+                  </Typography>
+                  <ModernTextField
+                    fullWidth
+                    label="Telefon numaranızın son 4 hanesi"
+                    value={phoneLastFour}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/\D/g, '').slice(0, 4)
+                      setPhoneLastFour(value)
+                    }}
+                    inputProps={{
+                      maxLength: 4,
+                      inputMode: 'numeric',
+                      pattern: '[0-9]*'
+                    }}
+                    helperText="Kayıtlı telefon numaranızın son 4 hanesini giriniz"
                   />
-                  <Chip
-                    icon={<Sms />}
-                    label="SMS"
-                    clickable
-                    color={verificationMethod === 'sms' ? 'primary' : 'default'}
-                    onClick={() => setVerificationMethod('sms')}
-                  />
-                </Stack>
-              </Box>
+                  <Alert severity="info" sx={{ mt: 2, borderRadius: 2 }}>
+                    <strong>Güvenlik:</strong> Telefon numaranızın son 4 hanesi ile kimliğinizi doğrulayın.
+                  </Alert>
+                </Box>
+              ) : (
+                <Box>
+                  <Typography variant="subtitle2" sx={{ mb: 2 }}>
+                    Doğrulama Yöntemi Seçin:
+                  </Typography>
+                  <Stack direction="row" spacing={2}>
+                    <Chip
+                      icon={<Email />}
+                      label="E-posta"
+                      clickable
+                      color={verificationMethod === 'email' ? 'primary' : 'default'}
+                      onClick={() => setVerificationMethod('email')}
+                    />
+                    <Chip
+                      icon={<Sms />}
+                      label="SMS"
+                      clickable
+                      color={verificationMethod === 'sms' ? 'primary' : 'default'}
+                      onClick={() => setVerificationMethod('sms')}
+                    />
+                  </Stack>
+                </Box>
+              )}
               
-              <Box>
-                <Typography variant="subtitle2" sx={{ mb: 1 }}>Doğrulama Kodu (6 hane)</Typography>
+              {phoneVerified && (
+                <Box>
+                  <Typography variant="subtitle2" sx={{ mb: 1 }}>Doğrulama Kodu (6 hane)</Typography>
                 <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
                   {Array.from({ length: 6 }, (_, index) => (
                     <TextField
@@ -601,22 +661,25 @@ export default function ForgotPassword() {
                     />
                   ))}
                 </Box>
-              </Box>
+                </Box>
+              )}
               
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Button
-                  variant="outlined"
-                  onClick={handleSendVerification}
-                  disabled={loading || countdown > 0}
-                  startIcon={<Send />}
-                  sx={{ borderRadius: 2 }}
-                >
-                  {countdown > 0 ? `${countdown}s` : 'Kod Gönder'}
-                </Button>
-                <Typography variant="caption" color="text.secondary">
-                  {verificationMethod === 'email' ? '📧 E-posta' : '📱 SMS'} ile kod gönderilecek
-                </Typography>
-              </Box>
+              {phoneVerified && (
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Button
+                    variant="outlined"
+                    onClick={handleSendVerification}
+                    disabled={loading || countdown > 0}
+                    startIcon={<Send />}
+                    sx={{ borderRadius: 2 }}
+                  >
+                    {countdown > 0 ? `${countdown}s` : 'Kod Gönder'}
+                  </Button>
+                  <Typography variant="caption" color="text.secondary">
+                    {verificationMethod === 'email' ? '📧 E-posta' : '📱 SMS'} ile kod gönderilecek
+                  </Typography>
+                </Box>
+              )}
             </Stack>
           </Box>
         )
@@ -816,7 +879,9 @@ export default function ForgotPassword() {
                 onClick={handleNext}
                 disabled={loading}
               >
-                {loading ? 'İşleniyor...' : activeStep === 2 ? 'Şifreyi Değiştir' : 'İleri'}
+                {loading ? 'İşleniyor...' : 
+                 activeStep === 1 && !phoneVerified ? 'Telefonu Doğrula' :
+                 activeStep === 2 ? 'Şifreyi Değiştir' : 'İleri'}
               </UltraButton>
             </Box>
           )}

@@ -137,7 +137,7 @@ app.Use(async (ctx, next) =>
 // TenantContext (basit)
 app.Use(async (ctx, next) =>
 {
-    const string TenantHeader = "X-Tenant-Id";
+    const string TenantHeader = "x-tenant-id";
     var tenantId = ctx.Request.Headers.TryGetValue(TenantHeader, out var v) && !string.IsNullOrWhiteSpace(v)
         ? v.ToString().Trim()
         : "default";
@@ -177,7 +177,8 @@ app.MapInfraEndpoints();
 app.MapTenantEndpoints();   
 app.MapAuthNviEndpoints(); 
 app.MapAuthUsernameEndpoints(); // Added Username Check Endpoints
-app.MapAuthEmailCheckEndpoints(); // Added Email Check Endpoints
+app.MapAuthEmailCheckEndpoints();
+app.MapAuthPhoneVerifyEndpoints(); // Added Email Check Endpoints
 app.MapAuthPharmacistRegistrationEndpoints(); // Added PharmacistAdmin Registration Endpoints
 app.MapControlEndpoints();
 app.MapControlGlnEndpoints();
@@ -198,6 +199,8 @@ app.MapTenantProductEndpoints(); // Added Tenant Product Management Endpoints
 app.MapGlnRegistryEndpoints(); // Added GLN Registry Endpoints
 app.MapSearchEndpoints(); // NEW - Search endpoints
 app.MapInfraItsTokenEndpoints(); // Added ITS Token Management Endpoints
+app.MapTenantGlnListEndpoints(); // Added Tenant GLN List Endpoints
+app.MapTenantProductListEndpoints(); // Added Tenant Product List Endpoints
 app.MapSuperAdminEndpoints(); // Added SuperAdmin Authentication Endpoints
 
 // --- GLN DRY-RUN PING ---

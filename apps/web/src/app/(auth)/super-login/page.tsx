@@ -136,7 +136,7 @@ export default function LoginPage() {
           {/* Footer */}
           <Box sx={{ mt: 4, textAlign: 'center' }}>
             <Typography variant="caption" color="text.secondary">
-              © 2025 OPAS - Eczane Yönetim Sistemi
+              © 2025 OPAS - Yeni Nesil Akıllı Eczane Otomasyon Sistemi
             </Typography>
           </Box>
         </Paper>
@@ -153,7 +153,7 @@ export default function LoginPage() {
             OPAS
           </Typography>
           <Typography variant="h6" color="text.secondary" gutterBottom>
-            Eczane Yönetim Sistemi
+            Online Pharmacy Automation System
           </Typography>
           <Chip
             icon={<SuperAdminIcon />}
@@ -241,7 +241,7 @@ export default function LoginPage() {
         {/* Footer */}
         <Box sx={{ mt: 4, textAlign: 'center' }}>
           <Typography variant="caption" color="text.secondary">
-            © 2025 OPAS - Eczane Yönetim Sistemi
+            © 2025 OPAS - Yeni Nesil Akıllı Eczane Otomasyon Sistemi
           </Typography>
         </Box>
       </Paper>

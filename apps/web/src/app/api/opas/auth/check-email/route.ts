@@ -41,6 +41,7 @@ export async function GET(request: NextRequest) {
       username: result.username,
       firstName: result.firstName,
       lastName: result.lastName,
+      gln: result.gln,
       message: result.message
     })
 

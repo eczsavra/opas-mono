@@ -1,0 +1,15 @@
+Windows Registry Editor Version 5.00
+
+[HKEY_CLASSES_ROOT\opas]
+@="OPAS Protocol"
+"URL Protocol"=""
+
+[HKEY_CLASSES_ROOT\opas\DefaultIcon]
+@="C:\\OPAS\\src\\Opas.LocalService\\bin\\Release\\net8.0-windows\\win-x64\\publish\\OPASlocal.exe,1"
+
+[HKEY_CLASSES_ROOT\opas\shell]
+
+[HKEY_CLASSES_ROOT\opas\shell\open]
+
+[HKEY_CLASSES_ROOT\opas\shell\open\command]
+@="\"C:\\OPAS\\src\\Opas.LocalService\\bin\\Release\\net8.0-windows\\win-x64\\publish\\OPASlocal.exe\" \"%1\""

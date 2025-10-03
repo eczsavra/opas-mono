@@ -33,6 +33,7 @@ public sealed class TenantDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+
         // TenantProduct Entity Configuration (aligned with CentralProduct)
         modelBuilder.Entity<TenantProduct>(e =>
         {

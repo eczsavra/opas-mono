@@ -1,0 +1,70 @@
+name: OPAS Cursor Rules
+version: 1
+
+principles:
+  - Keep code runnable at all times (small, testable edits)
+  - No mock data in flows using external services unless explicitly allowed
+  - Respect Turkish locale in UX copy; code remains in English
+  - Prefer readability and maintainability over cleverness
+  - Multi-tenant invariants must never be broken (DB-per-tenant)
+
+style:
+  code:
+    - Use meaningful names; avoid 1–2 char identifiers
+    - Explicit types for public APIs
+    - Guard clauses for error cases; shallow nesting
+    - No empty catch blocks; log meaningfully
+    - Preserve existing indentation style and width
+  comments:
+    - Explain "why", not "how"; no trivial comments
+    - Avoid TODOs; implement instead (unless tracked in docs/TODO.md)
+
+architecture:
+  databases:
+    - Control Plane: opas_control
+    - Public: opas_public
+    - Tenant: opas_tenant_<GLN> (DB-per-tenant)
+  tables:
+    - Control: tenants, tenants_usernames, token_store, super_admins
+    - Public: central_products, gln_registry
+    - Tenant: products, gln_list, tenant_info
+  ids:
+    - TenantId format: TNT_<GLN>
+    - Tenant DB name: opas_tenant_<GLN>
+
+registration:
+  flow:
+    - Step 1: GLN validation (registry), confirm "Bu Benim"
+    - Step 2: NVI identity (dev bypass via config only)
+    - Step 3: Email verification (code)
+    - Step 4: SMS verification (code)
+    - Step 5: Username (min 4, DB availability) + Password
+    - Step 6: Success page, 10s redirect to /t-login
+  provisioning:
+    - Create tenant record(s) then provision DB
+    - Create only 3 tables: products, gln_list, tenant_info
+    - Sync products and gln list from Public DB
+    - Mark isCompleted=true, then sync tenant_info
+
+integrations:
+  its:
+    - Use token_store for tokens (timestamp-named)
+    - Daily cron: products 06:00, gln 05:00
+  nvi:
+    - Real validation by default; dev bypass allowed via config
+
+security:
+  - Passwords are plain text per current requirement; must be hashed before production
+
+frontend:
+  - Username availability: hard block advance when unavailable
+  - Show/hide passwords (eye icon)
+  - Auto-focus first input each step; Enter submits
+  - Show long-process warning after 4s during final submit
+
+process:
+  - Keep docs/PROJECT-STATE.md updated when behavior changes
+  - Log significant architectural decisions in docs/TODO.md or ADRs
+  - Prefer semantic search over grep for exploration
+
+

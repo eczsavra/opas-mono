@@ -259,9 +259,9 @@ export default function ModernLogin() {
           username: result.user.username
         })
         
-        // Başarılı giriş mesajını göster ve dashboard'a yönlendir
+        // Başarılı giriş mesajını göster ve tenant dashboard'a yönlendir
         setTimeout(() => {
-          window.location.href = '/' // Ana sayfa (dashboard)
+          window.location.href = '/t-dashboard' // Tenant dashboard
         }, 1500) // 1.5 saniye bekle, sonra yönlendir
       } else {
         alert(result.error || 'Giriş başarısız')

@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Opas.Shared")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+79434c8509bf8e76ed6598e64df3488e793cbc30")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4fd561b8ce0d9e6b5adef56a8390cbea8c29b0bf")]
 [assembly: System.Reflection.AssemblyProductAttribute("Opas.Shared")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Opas.Shared")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
