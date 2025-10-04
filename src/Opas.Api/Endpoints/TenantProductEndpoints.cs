@@ -48,13 +48,20 @@ public static class TenantProductEndpoints
                 {
                     var query = tenantDb.Products.AsQueryable();
 
-                    // Arama filtresi
+                    // Gelişmiş arama filtresi (fuzzy/partial matching)
                     if (!string.IsNullOrEmpty(search))
                     {
-                        query = query.Where(p => 
-                            (p.DrugName != null && EF.Functions.ILike(p.DrugName, $"%{search}%")) ||
-                            (p.Gtin != null && EF.Functions.ILike(p.Gtin, $"%{search}%")) ||
-                            (p.ManufacturerName != null && EF.Functions.ILike(p.ManufacturerName, $"%{search}%")));
+                        // Arama terimini parçalara ayır
+                        var searchTerms = search.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                        
+                        // Her bir kelime için arama yap (sadece DrugName ve Gtin)
+                        foreach (var term in searchTerms)
+                        {
+                            var searchTerm = term.Trim();
+                            query = query.Where(p => 
+                                (p.DrugName != null && EF.Functions.ILike(p.DrugName, $"%{searchTerm}%")) ||
+                                (p.Gtin != null && EF.Functions.ILike(p.Gtin, $"%{searchTerm}%")));
+                        }
                     }
 
                     // Aktif/pasif filtresi

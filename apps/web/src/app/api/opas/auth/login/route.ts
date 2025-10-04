@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 
 export async function POST(request: Request) {
   try {
@@ -34,6 +35,20 @@ export async function POST(request: Request) {
     }
 
     const result = await response.json()
+    
+    // ✅ TENANT ID COOKIE'Sİ SET ET
+    if (result.success && result.user?.tenantId) {
+      const cookieStore = await cookies()
+      cookieStore.set('x-tenant-id', result.user.tenantId, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 60 * 60 * 24 * 7 // 7 gün
+      })
+      console.log('✅ Tenant ID cookie set edildi:', result.user.tenantId)
+    }
+    
     return NextResponse.json(result)
 
   } catch (error) {

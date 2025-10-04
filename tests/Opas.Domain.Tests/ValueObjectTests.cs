@@ -53,7 +53,9 @@ public class ValueObjectTests
         var obj = new TestValueObject("test", 123);
         
         (obj == null).Should().BeFalse();
+#pragma warning disable CS8602 // Dereference of a possibly null reference
         obj.Equals((object?)null).Should().BeFalse();
+#pragma warning restore CS8602
     }
 
     [Fact]

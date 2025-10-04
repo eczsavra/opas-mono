@@ -9,6 +9,7 @@ using Opas.Infrastructure.ScheduledJobs;
 using Opas.Infrastructure.Services;
 using Opas.Infrastructure.Search.Services;
 using Opas.Shared.Logging;
+using Opas.Shared.MultiTenancy;
 
 namespace Opas.Infrastructure;
 
@@ -24,7 +25,22 @@ public static class DependencyInjection
         if (!string.IsNullOrWhiteSpace(cs))
         {
             services.AddDbContext<PublicDbContext>(o => o.UseNpgsql(cs));
-            services.AddDbContext<TenantDbContext>(o => o.UseNpgsql(cs));
+            
+            // TenantDbContext: Dynamic connection string based on tenant ID
+            services.AddDbContext<TenantDbContext>((sp, options) =>
+            {
+                var tenantProvider = sp.GetRequiredService<ITenantProvider>();
+                var tenantId = tenantProvider.TenantId;
+                
+                // Extract GLN from tenant ID (format: TNT_8680001530144)
+                var gln = tenantId.StartsWith("TNT_") ? tenantId.Substring(4) : tenantId;
+                var tenantDbName = $"opas_tenant_{gln}";
+                
+                // Build tenant-specific connection string
+                var tenantCs = cs.Replace("Database=opas_public", $"Database={tenantDbName}");
+                
+                options.UseNpgsql(tenantCs);
+            });
 
             // Dev'de seed'i App start'ında tetiklemek için bir hosted service ekleyelim:
             services.AddHostedService(sp => new SeedHostedService(sp, env));

@@ -21,7 +21,8 @@ import {
   Store as StoreIcon,
   Inventory as InventoryIcon,
   LocalPharmacy as PharmacyIcon,
-  Speed
+  Speed,
+  PointOfSale as SalesIcon
 } from '@mui/icons-material'
 import { styled } from '@mui/material/styles'
 
@@ -113,19 +114,26 @@ const navigationItems = [
     badge: null 
   },
   { 
+    id: 'sales', 
+    text: 'Satış', 
+    icon: <SalesIcon />, 
+    path: '/satis',
+    badge: null 
+  },
+  { 
     id: 'stakeholders', 
     text: 'Paydaşlar', 
     icon: <StoreIcon />, 
     path: '/paydaslar',
     badge: null 
   },
-        { 
-          id: 'products', 
-          text: 'Ürünler', 
-          icon: <InventoryIcon />, 
-          path: '/productslist',
-          badge: null 
-        },
+  { 
+    id: 'products', 
+    text: 'Ürünler', 
+    icon: <InventoryIcon />, 
+    path: '/productslist',
+    badge: null 
+  },
 ]
 
 interface TenantSidebarProps {
