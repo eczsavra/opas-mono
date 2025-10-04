@@ -1408,7 +1408,9 @@ export default function Registration() {
 
       // Show warning after 4 seconds
       warningTimer = setTimeout(() => {
+        console.log('⚠️ 4 SANIYE GEÇTİ - WARNING GÖSTER!')
         setShowLongProcessWarning(true)
+        console.log('⚠️ showLongProcessWarning STATE = TRUE YAPILDI')
       }, 4000)
 
       const registrationData = {

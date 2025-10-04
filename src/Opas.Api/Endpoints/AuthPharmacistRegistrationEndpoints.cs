@@ -52,6 +52,9 @@ public static class AuthPharmacistRegistrationEndpoints
                         return Results.BadRequest(new { success = false, error = validationError });
                     }
 
+                    // ⏰ TEST: 5 saniye bekle (Warning mesajını görmek için)
+                    await Task.Delay(5000, ct);
+
                     // Check if GLN already registered
                     var existingByGln = await controlDb.Tenants
                         .AsNoTracking()

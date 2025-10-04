@@ -78,8 +78,8 @@ export default function StakeholdersPage() {
         const tenantId = localStorage.getItem('tenantId')
         
         if (!tenantId) {
-          console.error('Tenant ID not found in localStorage')
-          setLoading(false)
+          console.error('Tenant ID not found in localStorage - Redirecting to login')
+          window.location.href = '/t-login'
           return
         }
         

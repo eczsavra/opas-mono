@@ -111,8 +111,8 @@ export default function ProductsListPage() {
       const tenantId = localStorage.getItem('tenantId')
       
       if (!tenantId) {
-        console.error('Tenant ID not found in localStorage')
-        setStatsLoading(false)
+        console.error('Tenant ID not found in localStorage - Redirecting to login')
+        window.location.href = '/t-login'
         return
       }
       
@@ -144,8 +144,8 @@ export default function ProductsListPage() {
       const tenantId = localStorage.getItem('tenantId')
       
       if (!tenantId) {
-        console.error('Tenant ID not found in localStorage')
-        setLoading(false)
+        console.error('Tenant ID not found in localStorage - Redirecting to login')
+        window.location.href = '/t-login'
         return
       }
       

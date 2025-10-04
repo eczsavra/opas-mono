@@ -252,6 +252,24 @@ export default function ModernLogin() {
       if (result.success) {
         // Başarılı giriş
         console.log('Giriş başarılı:', result.user)
+        
+        // ✅ TENANT BİLGİLERİNİ LOCALSTORAGE'A KAYDET
+        localStorage.setItem('tenantId', result.user.tenantId)
+        localStorage.setItem('username', result.user.username)
+        localStorage.setItem('firstName', result.user.firstName)
+        localStorage.setItem('lastName', result.user.lastName)
+        localStorage.setItem('pharmacyName', result.user.eczaneAdi)
+        localStorage.setItem('gln', result.user.gln)
+        localStorage.setItem('email', result.user.email)
+        localStorage.setItem('ili', result.user.ili)
+        localStorage.setItem('ilcesi', result.user.ilcesi)
+        
+        console.log('✅ Tenant bilgileri localStorage\'a kaydedildi:', {
+          tenantId: result.user.tenantId,
+          username: result.user.username,
+          pharmacyName: result.user.eczaneAdi
+        })
+        
         setIsLoggedIn(true)
         setUserInfo({
           firstName: result.user.firstName,

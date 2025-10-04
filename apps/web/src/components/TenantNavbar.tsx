@@ -143,7 +143,26 @@ export default function TenantNavbar({ open, onSidebarToggle }: TenantNavbarProp
   }
 
   const handleLogout = () => {
-    // Logout logic
+    // ✅ SADECE AUTH BİLGİLERİNİ SİL, SATIŞ DATALARINI KORU!
+    
+    // 1. Auth bilgilerini temizle (LOGIN için gerekli olanlar)
+    const authKeys = [
+      'username',
+      'firstName', 
+      'lastName',
+      'email',
+      'gln',
+      'ili',
+      'ilcesi',
+      'pharmacyName',
+      'tenantId'
+    ]
+    
+    authKeys.forEach(key => localStorage.removeItem(key))
+    
+    console.log('✅ Logout: Auth bilgileri temizlendi, satış dataları korundu')
+    
+    // 2. Redirect to login
     window.location.href = '/t-login'
   }
 

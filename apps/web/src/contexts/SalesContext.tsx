@@ -35,6 +35,13 @@ interface SalesContextType {
 
 const SalesContext = createContext<SalesContextType | undefined>(undefined)
 
+// Helper function to get tenant-specific keys
+const getTenantKey = (baseKey: string): string => {
+  if (typeof window === 'undefined') return baseKey
+  const tenantId = localStorage.getItem('tenantId') || 'default'
+  return `${baseKey}_${tenantId}`
+}
+
 const STORAGE_KEY = 'opas_sales_tabs'
 const ACTIVE_TAB_KEY = 'opas_active_tab'
 const TAB_COUNTER_KEY = 'opas_tab_counter'
@@ -53,15 +60,15 @@ export function SalesProvider({ children }: { children: ReactNode }) {
   // Load from localStorage (önce) ve sessionStorage on mount
   useEffect(() => {
     try {
-      // 1. localStorage'dan yükle (browser kapansa bile kalıcı)
-      const persistentTabs = localStorage.getItem(LOCAL_STORAGE_KEY)
-      const persistentActiveTab = localStorage.getItem(LOCAL_ACTIVE_TAB_KEY)
-      const persistentCounter = localStorage.getItem(LOCAL_TAB_COUNTER_KEY)
+      // 1. localStorage'dan yükle (browser kapansa bile kalıcı) - TENANT-SPECIFIC
+      const persistentTabs = localStorage.getItem(getTenantKey(LOCAL_STORAGE_KEY))
+      const persistentActiveTab = localStorage.getItem(getTenantKey(LOCAL_ACTIVE_TAB_KEY))
+      const persistentCounter = localStorage.getItem(getTenantKey(LOCAL_TAB_COUNTER_KEY))
 
-      // 2. sessionStorage'dan yükle (sayfa içinde gezinirken)
-      const savedTabs = sessionStorage.getItem(STORAGE_KEY)
-      const savedActiveTab = sessionStorage.getItem(ACTIVE_TAB_KEY)
-      const savedCounter = sessionStorage.getItem(TAB_COUNTER_KEY)
+      // 2. sessionStorage'dan yükle (sayfa içinde gezinirken) - TENANT-SPECIFIC
+      const savedTabs = sessionStorage.getItem(getTenantKey(STORAGE_KEY))
+      const savedActiveTab = sessionStorage.getItem(getTenantKey(ACTIVE_TAB_KEY))
+      const savedCounter = sessionStorage.getItem(getTenantKey(TAB_COUNTER_KEY))
 
       // sessionStorage varsa onu kullan, yoksa localStorage'dan yükle
       const tabsToLoad = savedTabs || persistentTabs
@@ -96,15 +103,15 @@ export function SalesProvider({ children }: { children: ReactNode }) {
       const activeTabValue = activeTab ? activeTab : ''
       const counterValue = tabCounter.toString()
 
-      // sessionStorage (sayfa içi gezinme için)
-      sessionStorage.setItem(STORAGE_KEY, tabsJson)
-      sessionStorage.setItem(ACTIVE_TAB_KEY, activeTabValue)
-      sessionStorage.setItem(TAB_COUNTER_KEY, counterValue)
+      // sessionStorage (sayfa içi gezinme için) - TENANT-SPECIFIC
+      sessionStorage.setItem(getTenantKey(STORAGE_KEY), tabsJson)
+      sessionStorage.setItem(getTenantKey(ACTIVE_TAB_KEY), activeTabValue)
+      sessionStorage.setItem(getTenantKey(TAB_COUNTER_KEY), counterValue)
 
-      // localStorage (browser kapansa/elektrik kesse bile kalıcı)
-      localStorage.setItem(LOCAL_STORAGE_KEY, tabsJson)
-      localStorage.setItem(LOCAL_ACTIVE_TAB_KEY, activeTabValue)
-      localStorage.setItem(LOCAL_TAB_COUNTER_KEY, counterValue)
+      // localStorage (browser kapansa/elektrik kesse bile kalıcı) - TENANT-SPECIFIC
+      localStorage.setItem(getTenantKey(LOCAL_STORAGE_KEY), tabsJson)
+      localStorage.setItem(getTenantKey(LOCAL_ACTIVE_TAB_KEY), activeTabValue)
+      localStorage.setItem(getTenantKey(LOCAL_TAB_COUNTER_KEY), counterValue)
     } catch (error) {
       console.error('Failed to save sales tabs to storage:', error)
     }
