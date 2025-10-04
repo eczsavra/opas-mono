@@ -32,7 +32,7 @@ public static class DependencyInjection
                 var tenantProvider = sp.GetRequiredService<ITenantProvider>();
                 var tenantId = tenantProvider.TenantId;
                 
-                // Extract GLN from tenant ID (format: TNT_8680001530144)
+                // Extract GLN from tenant ID (format: TNT_<GLN>)
                 var gln = tenantId.StartsWith("TNT_") ? tenantId.Substring(4) : tenantId;
                 var tenantDbName = $"opas_tenant_{gln}";
                 

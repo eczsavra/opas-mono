@@ -34,7 +34,7 @@ public static class TenantGlnListEndpoints
                 return Results.BadRequest("Tenant ID not found in headers");
             }
 
-            // Extract GLN from tenant ID (TNT_8680001530144 -> 8680001530144)
+            // Extract GLN from tenant ID (TNT_<GLN> -> <GLN>)
             var gln = tenantId.Replace("TNT_", "");
             var tenantDbName = $"opas_tenant_{gln}";
             

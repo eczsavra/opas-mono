@@ -64,43 +64,7 @@ const validateGLNFromDB = async (gln: string) => {
   } catch (error) {
     console.error('GLN Backend API Error:', error)
     
-    // Backend erişilemiyorsa fallback - development için demo data
-    if (process.env.NODE_ENV === 'development') {
-      console.log('🚧 Backend erişilemez, demo data kullanılıyor...')
-      
-      // Demo GLN'ler (development için)
-      const demoGLNs = [
-        {
-          gln: '8680001530144',
-          companyName: 'Demo Eczane A.Ş.',
-          city: 'İstanbul',
-          town: 'Kadıköy',
-          address: 'Moda Cad. No: 123',
-          active: true,
-          authorized: 'Ahmet Yılmaz',
-          email: 'demo@eczane.com',
-          phone: '0212-555-0144'
-        },
-        {
-          gln: '8680001530151', 
-          companyName: 'Sağlık Eczanesi',
-          city: 'Ankara',
-          town: 'Çankaya', 
-          address: 'Tunalı Hilmi Cad. No: 45',
-          active: true,
-          authorized: 'Fatma Demir',
-          email: 'saglik@eczane.com',
-          phone: '0312-555-0151'
-        }
-      ]
-      
-      const demoPharmacy = demoGLNs.find(p => p.gln === gln)
-      if (demoPharmacy) {
-        return { found: true, data: demoPharmacy }
-      }
-    }
-    
-    // Backend erişilemiyorsa fallback
+    // Backend erişilemiyorsa hata döndür (demo/mock data yok)
     if (error instanceof Error && error.name === 'AbortError') {
       return { found: false, data: null, error: 'Doğrulama zaman aşımına uğradı' }
     }

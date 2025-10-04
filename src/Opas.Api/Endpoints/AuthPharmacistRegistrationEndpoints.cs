@@ -260,8 +260,6 @@ public static class AuthPharmacistRegistrationEndpoints
         return app;
     }
 
-    // Tenant ID generator moved to SmartIdGenerator
-
     // Password hashing with salt
     private static (string hashedPassword, string salt) HashPassword(string password)
     {

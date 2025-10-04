@@ -75,7 +75,13 @@ export default function StakeholdersPage() {
         setLoading(true)
         
         // Get tenant ID from localStorage
-        const tenantId = localStorage.getItem('tenantId') || 'TNT_8680001530144'
+        const tenantId = localStorage.getItem('tenantId')
+        
+        if (!tenantId) {
+          console.error('Tenant ID not found in localStorage')
+          setLoading(false)
+          return
+        }
         
         console.log('Fetching GLN list for tenant:', tenantId)
         

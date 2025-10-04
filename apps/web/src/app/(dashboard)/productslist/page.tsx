@@ -108,7 +108,13 @@ export default function ProductsListPage() {
   const loadStats = useCallback(async () => {
     try {
       setStatsLoading(true)
-      const tenantId = localStorage.getItem('tenantId') || 'TNT_8680001530144'
+      const tenantId = localStorage.getItem('tenantId')
+      
+      if (!tenantId) {
+        console.error('Tenant ID not found in localStorage')
+        setStatsLoading(false)
+        return
+      }
       
       const response = await fetch('/api/opas/tenant/products/stats', {
         method: 'GET',
@@ -135,7 +141,13 @@ export default function ProductsListPage() {
   const loadProducts = useCallback(async () => {
     try {
       setLoading(true)
-      const tenantId = localStorage.getItem('tenantId') || 'TNT_8680001530144'
+      const tenantId = localStorage.getItem('tenantId')
+      
+      if (!tenantId) {
+        console.error('Tenant ID not found in localStorage')
+        setLoading(false)
+        return
+      }
       
       const params = new URLSearchParams({
         page: page.toString(),

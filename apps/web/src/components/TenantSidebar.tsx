@@ -271,10 +271,10 @@ export default function TenantSidebar({ open, onToggle, currentPath }: TenantSid
           </Avatar>
           <Box>
             <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.8rem' }}>
-              Eczane Adı
+              {typeof window !== 'undefined' && localStorage.getItem('pharmacyName') || 'Eczane Adı'}
             </Typography>
             <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.7rem' }}>
-              GLN: 8680001530144
+              GLN: {typeof window !== 'undefined' && (localStorage.getItem('tenantId')?.replace('TNT_', '') || '...')}
             </Typography>
           </Box>
         </Box>

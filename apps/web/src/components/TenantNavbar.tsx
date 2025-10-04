@@ -340,10 +340,10 @@ export default function TenantNavbar({ open, onSidebarToggle }: TenantNavbarProp
             </Avatar>
             <Box>
               <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                Eczane Adı
+                {typeof window !== 'undefined' && localStorage.getItem('pharmacyName') || 'Eczane Adı'}
               </Typography>
               <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                GLN: 8680001530144
+                GLN: {typeof window !== 'undefined' && (localStorage.getItem('tenantId')?.replace('TNT_', '') || '...')}
               </Typography>
             </Box>
           </Box>

@@ -12,10 +12,10 @@ public static class SmartIdGenerator
     private static readonly object _lock = new();
 
     /// <summary>
-    /// SuperAdmin ID - FIXED (Muhammed Erdem Arvas)
-    /// Format: mea9963 (no generation needed)
+    /// SuperAdmin ID - FIXED
+    /// Format: <superadmin_id> (no generation needed)
     /// </summary>
-    public const string SUPERADMIN_ID = "mea9963";
+    public const string SUPERADMIN_ID = "";
 
     /// <summary>
     /// Pharmacist ID generator  

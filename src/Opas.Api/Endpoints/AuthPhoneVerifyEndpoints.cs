@@ -8,7 +8,7 @@ public static class AuthPhoneVerifyEndpoints
 {
     public static IEndpointRouteBuilder MapAuthPhoneVerifyEndpoints(this IEndpointRouteBuilder app)
     {
-        // GET /api/auth/verify-phone-last4?username=erdem&lastFour=3555
+        // GET /api/auth/verify-phone-last4?username=<username>&lastFour=<last4digits>
         app.MapGet("/api/auth/verify-phone-last4", async (
             [FromQuery] string? username,
             [FromQuery] string? lastFour,

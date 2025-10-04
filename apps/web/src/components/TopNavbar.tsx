@@ -147,12 +147,23 @@ interface TopNavbarProps {
 export default function TopNavbar({ 
   sidebarCollapsed = false,
   onToggleSidebar,
-  userName = "Muhammed E. Arvas",
-  username = "eczsavra",
+  userName: userNameProp,
+  username: usernameProp,
   userAvatar
 }: TopNavbarProps) {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
+  
+  // Get user info from localStorage (dynamic)
+  const userName = userNameProp || 
+    (typeof window !== 'undefined' 
+      ? `${localStorage.getItem('firstName') || ''} ${localStorage.getItem('lastName') || ''}`.trim() || 'Kullanıcı'
+      : 'Kullanıcı')
+  
+  const username = usernameProp || 
+    (typeof window !== 'undefined' 
+      ? localStorage.getItem('username') || 'user'
+      : 'user')
   
   // States
   const [searchQuery, setSearchQuery] = useState('')

@@ -14,7 +14,7 @@ Bu dosya, projenin mevcut mimarisini, veri tabanı yapısını, kayıt (registra
 
 #### A) Control Plane DB: `opas_control`
 - tenants (kayıtlar: 2)
-  - t_id: `TNT_` + GLN (örn: TNT_8680001530144)
+  - t_id: `TNT_` + GLN (örn: TNT_<GLN>)
   - gln, type (eczane), eczane_adi, ili, ilcesi
   - ad, soyad, tc_no, dogum_yili
   - email, isEmailVerified, cep_tel, isCepTelVerified
@@ -45,9 +45,8 @@ Her tenant için 3 tablo:
 - gln_list (paydaş listesi; merkezi GLN’lerden beslenir)
 - tenant_info (1 kayıt; registration verilerinin kopyası + isCompleted)
 
-Mevcut örnekler:
-- opas_tenant_8680001517626
-- opas_tenant_8680001530144
+Örnek format:
+- opas_tenant_<GLN>
 
 ### 3) Registration Akışı (6 Adım)
 1. GLN doğrulama (GLN registry, “Bu Benim” onayı)
@@ -98,10 +97,10 @@ Kayıt Sonrası Otomasyon:
 - opas_control.tenants_usernames: 2 kayıt
 - opas_public.central_products: 34,533 kayıt
 - opas_public.gln_registry: 41,843 kayıt
-- Örnek tenant DB (`opas_tenant_8680001530144`):
-  - products: 34,533
-  - gln_list: 0
-  - tenant_info.isCompleted: false
+- Örnek tenant DB (`opas_tenant_<GLN>`):
+  - products: ~34,533
+  - gln_list: değişken
+  - tenant_info.isCompleted: true (kayıt tamamlandıktan sonra)
 
 ### 9) Yol Haritası (Öneri)
 - Kısa vadede: Login implementasyonu, dashboard başlangıcı
