@@ -151,6 +151,24 @@ public class TenantProvisioningService
                     CREATE INDEX idx_tenant_info_gln ON tenant_info(gln);
                     CREATE INDEX idx_tenant_info_username ON tenant_info(username);
                     CREATE INDEX idx_tenant_info_email ON tenant_info(email);
+
+                    -- Draft Sales tablosu (tamamlanmamış satışlar)
+                    CREATE TABLE IF NOT EXISTS draft_sales (
+                        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                        tab_id VARCHAR(50) NOT NULL UNIQUE,
+                        tab_label VARCHAR(100) NOT NULL,
+                        products JSONB NOT NULL DEFAULT '[]'::jsonb,
+                        is_completed BOOLEAN DEFAULT FALSE,
+                        created_by VARCHAR(100) NOT NULL,
+                        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                        completed_at TIMESTAMP WITH TIME ZONE,
+                        display_order INT DEFAULT 0
+                    );
+                    CREATE INDEX idx_draft_sales_tab_id ON draft_sales(tab_id);
+                    CREATE INDEX idx_draft_sales_completed ON draft_sales(is_completed) WHERE is_completed = FALSE;
+                    CREATE INDEX idx_draft_sales_created_by ON draft_sales(created_by);
+                    CREATE INDEX idx_draft_sales_display_order ON draft_sales(display_order) WHERE is_completed = FALSE;
                 ";
 
                 using (var cmd = new NpgsqlCommand(createTablesSql, conn))

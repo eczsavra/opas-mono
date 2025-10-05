@@ -143,9 +143,12 @@ export default function TenantNavbar({ open, onSidebarToggle }: TenantNavbarProp
   }
 
   const handleLogout = () => {
-    // ✅ SADECE AUTH BİLGİLERİNİ SİL, SATIŞ DATALARINI KORU!
+    // ✅ SADECE AUTH BİLGİLERİNİ SİL, SATIŞ DATALARINI KORU (TENANT-SPECIFIC)!
     
-    // 1. Auth bilgilerini temizle (LOGIN için gerekli olanlar)
+    // 1. Get current tenantId BEFORE clearing auth
+    const currentTenantId = localStorage.getItem('tenantId') || 'default'
+    
+    // 2. Auth bilgilerini temizle (LOGIN için gerekli olanlar)
     const authKeys = [
       'username',
       'firstName', 
@@ -160,9 +163,9 @@ export default function TenantNavbar({ open, onSidebarToggle }: TenantNavbarProp
     
     authKeys.forEach(key => localStorage.removeItem(key))
     
-    console.log('✅ Logout: Auth bilgileri temizlendi, satış dataları korundu')
+    console.log(`✅ Logout: Auth bilgileri temizlendi, tenant ${currentTenantId} satış dataları korundu`)
     
-    // 2. Redirect to login
+    // 3. Redirect to login
     window.location.href = '/t-login'
   }
 

@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5080'
     const url = `${backendUrl}/api/tenant/products?search=${encodeURIComponent(search)}&page=${page}&pageSize=${pageSize}&isActive=true`
 
     const response = await fetch(url, {

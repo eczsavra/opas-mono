@@ -19,18 +19,21 @@ import TenantNavbar from '@/components/TenantNavbar'
 import ModernSearchBox from '@/components/sales/ModernSearchBox'
 import { useSalesContext } from '@/contexts/SalesContext'
 
-// Tab renk paleti
+// Tab renk paleti (100 colors for extensive tab support)
 const TAB_COLORS = [
-  '#1976d2', // Mavi
-  '#2e7d32', // Yeşil
-  '#ed6c02', // Turuncu
-  '#9c27b0', // Mor
-  '#d32f2f', // Kırmızı
-  '#0288d1', // Açık Mavi
-  '#7b1fa2', // Koyu Mor
-  '#c2185b', // Pembe
-  '#f57c00', // Koyu Turuncu
-  '#388e3c', // Koyu Yeşil
+  '#1976d2', '#2e7d32', '#ed6c02', '#9c27b0', '#d32f2f', '#0288d1', '#7b1fa2', '#c2185b',
+  '#00897b', '#5e35b1', '#f57c00', '#c62828', '#00695c', '#4527a0', '#6a1b9a', '#ad1457',
+  '#558b2f', '#d84315', '#01579b', '#4a148c', '#bf360c', '#33691e', '#1a237e', '#311b92',
+  '#006064', '#e65100', '#b71c1c', '#880e4f', '#1b5e20', '#4e342e', '#263238', '#3e2723',
+  '#0277bd', '#388e3c', '#f57f17', '#7b1fa2', '#c62828', '#0097a7', '#512da8', '#d81b60',
+  '#00796b', '#5e35b1', '#ef6c00', '#ad1457', '#00695c', '#6a1b9a', '#4527a0', '#c2185b',
+  '#00838f', '#6a1b9a', '#ff6f00', '#880e4f', '#004d40', '#4a148c', '#bf360c', '#6a1b9a',
+  '#00695c', '#7b1fa2', '#e65100', '#ad1457', '#00897b', '#512da8', '#f57c00', '#c2185b',
+  '#0288d1', '#43a047', '#fb8c00', '#8e24aa', '#e53935', '#0097a7', '#673ab7', '#ec407a',
+  '#26c6da', '#66bb6a', '#ffa726', '#ab47bc', '#ef5350', '#29b6f6', '#7e57c2', '#f06292',
+  '#4fc3f7', '#81c784', '#ffb74d', '#ba68c8', '#e57373', '#4dd0e1', '#9575cd', '#f48fb1',
+  '#80deea', '#a5d6a7', '#ffcc80', '#ce93d8', '#ef9a9a', '#80cbc4', '#b39ddb', '#ffccbc',
+  '#b0bec5', '#c5e1a5', '#ffe0b2', '#e1bee7', '#ffcdd2'
 ]
 
 export default function SatisPage() {
@@ -128,6 +131,9 @@ export default function SatisPage() {
         sx={{ 
           flexGrow: 1,
           minHeight: '100vh',
+          width: '100%',
+          maxWidth: '100vw',
+          overflowX: 'hidden', // ⚠️ CRITICAL: Prevent horizontal page scroll
           transition: 'margin 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
           marginLeft: { 
             xs: 0,
@@ -147,8 +153,10 @@ export default function SatisPage() {
           maxWidth="xl" 
           sx={{ 
             height: 'calc(100vh - 64px)',
-            maxWidth: '100vw',
-            overflow: 'hidden',
+            width: '100%',
+            maxWidth: '100%',
+            overflowX: 'hidden', // ⚠️ CRITICAL: No horizontal scroll for entire page!
+            overflowY: 'auto',   // ⚠️ Only vertical scroll allowed
             display: 'flex',
             flexDirection: 'column',
             py: 2,
@@ -160,7 +168,10 @@ export default function SatisPage() {
                    sx={{ 
                      flexShrink: 0, // Boyut değişmesin
                      pb: 2,
-                     pt: 1
+                     pt: 1,
+                     width: '100%', // ⚠️ CRITICAL: Fixed width container
+                     maxWidth: '100%',
+                     overflow: 'hidden' // ⚠️ Prevent any child overflow
                    }}
                  >
             {/* Yeni Satış Butonu */}
@@ -196,34 +207,58 @@ export default function SatisPage() {
                 elevation={2} 
                 sx={{ 
                   borderRadius: 2,
-                  overflow: 'hidden'
+                  overflow: 'hidden',
+                  maxWidth: '100%' // ⚠️ CRITICAL: Prevent horizontal overflow
                 }}
               >
               <Tabs
                 value={activeTab}
                 onChange={handleTabChange}
-                variant="fullWidth"
+                variant="scrollable"
+                scrollButtons="auto"
+                allowScrollButtonsMobile
                 sx={{
-                  minHeight: 48,
+                  minHeight: 56, // ⚠️ Daha yüksek tab bar
+                  width: '100%',
+                  maxWidth: '100%',
+                  overflow: 'hidden',
+                  '& .MuiTabs-scroller': {
+                    overflow: 'hidden !important',
+                  },
                   '& .MuiTab-root': {
-                    minHeight: 48,
+                    minHeight: 56, // ⚠️ Daha yüksek tablar
                     textTransform: 'none',
-                    fontSize: '0.85rem',
-                    fontWeight: 500,
-                    px: 1,
-                    minWidth: 50,
-                    maxWidth: 200,
+                    fontSize: '0.95rem', // ⚠️ Biraz daha büyük font
+                    fontWeight: 600, // ⚠️ Daha kalın font
+                    px: 3, // ⚠️ Daha geniş padding
+                    py: 1.5,
+                    minWidth: 120, // ⚠️ Daha geniş min width
+                    maxWidth: 200, // ⚠️ Daha geniş max width
+                    flexShrink: 0,
                     color: 'text.secondary',
+                    borderRadius: '8px 8px 0 0', // ⚠️ Yuvarlatılmış üst köşeler
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                     '&.Mui-selected': {
                       color: 'text.primary',
-                      fontWeight: 600,
+                      fontWeight: 700,
+                      transform: 'translateY(-2px)', // ⚠️ Aktif tab hafif yukarı
+                      boxShadow: '0 -2px 8px rgba(0,0,0,0.1)', // ⚠️ Gölge efekti
+                    },
+                    '&:hover': {
+                      transform: 'translateY(-1px)',
+                      backgroundColor: 'action.hover',
                     }
                   },
                   '& .MuiTabs-indicator': {
                     height: 0,
                   },
                   '& .MuiTabs-flexContainer': {
-                    gap: 0.25,
+                    gap: 0.5, // ⚠️ Biraz daha geniş gap
+                  },
+                  '& .MuiTabs-scrollButtons': {
+                    width: 48, // ⚠️ Daha geniş scroll butonları
+                    flexShrink: 0,
+                    '&.Mui-disabled': { opacity: 0.3 }
                   }
                 }}
               >
@@ -259,12 +294,12 @@ export default function SatisPage() {
                         display: 'flex', 
                         alignItems: 'center', 
                         justifyContent: 'space-between',
-                        gap: 0.5,
+                        gap: 1.5, // ⚠️ Daha geniş gap
                         width: '100%',
                         overflow: 'hidden',
                       }}>
                         <Typography 
-                          variant="body2" 
+                          variant="body1" // ⚠️ body2'den body1'e (daha büyük)
                           sx={{ 
                             fontWeight: 'inherit', 
                             color: 'inherit',
@@ -273,9 +308,11 @@ export default function SatisPage() {
                             whiteSpace: 'nowrap',
                             flexGrow: 1,
                             minWidth: 0,
+                            fontSize: '1rem', // ⚠️ Daha büyük font
+                            letterSpacing: '0.02em', // ⚠️ Hafif letter spacing
                           }}
                         >
-                          {tab.number}
+                          Satış #{tab.number}
                         </Typography>
                         <Box
                           component="span"
@@ -287,9 +324,9 @@ export default function SatisPage() {
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            width: 28,
-                            height: 28,
-                            minWidth: 28,
+                            width: 32, // ⚠️ Daha büyük close button
+                            height: 32,
+                            minWidth: 32,
                             borderRadius: '50%',
                             color: 'inherit',
                             opacity: activeTab === tab.id ? 0.9 : 0.7,
@@ -297,13 +334,13 @@ export default function SatisPage() {
                             cursor: 'pointer',
                             '&:hover': {
                               opacity: 1,
-                              backgroundColor: activeTab === tab.id ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)',
-                              transform: 'scale(1.1)',
+                              backgroundColor: activeTab === tab.id ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.15)',
+                              transform: 'scale(1.15)', // ⚠️ Biraz daha büyük scale
                             },
                             transition: 'all 0.2s ease',
                           }}
                         >
-                          <CloseIcon sx={{ fontSize: 16 }} />
+                          <CloseIcon sx={{ fontSize: 18 }} />
                         </Box>
                       </Box>
                     }

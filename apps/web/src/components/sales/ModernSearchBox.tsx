@@ -30,6 +30,7 @@ import {
 } from '@mui/icons-material'
 import { styled } from '@mui/material/styles'
 import { useSalesContext } from '@/contexts/SalesContext'
+import { useProductSearch } from '@/hooks/useProductSearch'
 
 const StyledAutocomplete = styled(Autocomplete<Product, false, false, true>)(({ theme }) => ({
   '& .MuiOutlinedInput-root': {
@@ -125,7 +126,23 @@ export default function ModernSearchBox({ tabId, onProductSelect }: ModernSearch
   const [loading, setLoading] = useState(false)
   const [highlightedIndex, setHighlightedIndex] = useState<number>(0)
   const [open, setOpen] = useState(false)
+  const [searchSource, setSearchSource] = useState<'backend' | 'cache'>('backend')
   const listboxRef = React.useRef<HTMLUListElement>(null)
+  const inputRef = React.useRef<HTMLInputElement>(null) // ⚠️ Ref for auto-focus
+  
+  // ✅ Use IndexedDB-powered search hook
+  const { searchProducts: searchWithCache } = useProductSearch()
+
+  // ⚠️ AUTO-FOCUS: When tab changes or component mounts, focus search box
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (inputRef.current) {
+        inputRef.current.focus()
+      }
+    }, 100) // Small delay to ensure component is fully rendered
+
+    return () => clearTimeout(timer)
+  }, [tabId]) // Re-run when tabId changes (tab switch)
 
   const searchProducts = useCallback(async (query: string) => {
     if (query.length < 2) {
@@ -138,27 +155,26 @@ export default function ModernSearchBox({ tabId, onProductSelect }: ModernSearch
     setLoading(true)
     
     try {
-      const response = await fetch(`/api/opas/tenant/products/search?search=${encodeURIComponent(query)}&pageSize=10`)
+      // ✅ Search with IndexedDB cache fallback
+      const result = await searchWithCache(query, 10)
       
-      if (response.ok) {
-        const data = await response.json()
-        const products = data.data || []
-        setOptions(products)
-        setHighlightedIndex(0)
-        setOpen(products.length > 0)
-      } else {
-        setOptions([])
-        setHighlightedIndex(0)
-        setOpen(false)
+      setSearchSource(result.source)
+      setOptions(result.products)
+      setHighlightedIndex(0)
+      setOpen(result.products.length > 0)
+      
+      if (result.source === 'cache') {
+        console.log('🔵 Offline mode: Using cached products')
       }
-    } catch {
+    } catch (error) {
+      console.error('Search error:', error)
       setOptions([])
       setHighlightedIndex(0)
       setOpen(false)
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [searchWithCache])
 
   const handleInputChange = (_event: React.SyntheticEvent, newInputValue: string) => {
     setInputValue(newInputValue)
@@ -271,10 +287,29 @@ export default function ModernSearchBox({ tabId, onProductSelect }: ModernSearch
         gridTemplateColumns: '1fr 320px',
         gap: 3,
         width: '100%',
+        maxWidth: '100%', // ⚠️ CRITICAL: Never exceed parent width
         height: '100%',
-        overflow: 'hidden'
+        overflow: 'hidden',
+        position: 'relative',
+        boxSizing: 'border-box' // ⚠️ Include padding/border in width calc
       }}
     >
+      {/* Offline Indicator */}
+      {searchSource === 'cache' && (
+        <Chip
+          label="📡 Offline Mode - Cached Data"
+          color="warning"
+          size="small"
+          sx={{
+            position: 'absolute',
+            top: 8,
+            right: 8,
+            zIndex: 10,
+            fontWeight: 600
+          }}
+        />
+      )}
+      
       {/* Sol Taraf - Arama + Accordion */}
       <Box 
         sx={{ 
@@ -314,6 +349,7 @@ export default function ModernSearchBox({ tabId, onProductSelect }: ModernSearch
         renderInput={(params) => (
           <TextField
             {...params}
+            inputRef={inputRef} // ⚠️ Connect ref for auto-focus
             placeholder="Ara, Sor, Keşfet!"
             onKeyDown={handleKeyDown}
             InputProps={{

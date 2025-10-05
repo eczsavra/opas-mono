@@ -196,6 +196,7 @@ app.MapItsProductSyncEndpoints(); // Added ITS Product Sync Endpoints
 app.MapTenantProductSyncEndpoints();
 app.MapTenantGlnSyncEndpoints(); // Added Tenant GLN Sync Endpoints (Central DB → Tenant DB)
 app.MapTenantProductEndpoints(); // Added Tenant Product Management Endpoints
+app.MapDraftSalesEndpoints(); // Added Draft Sales Endpoints (Persistent Sales Tabs)
 app.MapGlnRegistryEndpoints(); // Added GLN Registry Endpoints
 app.MapSearchEndpoints(); // NEW - Search endpoints
 app.MapInfraItsTokenEndpoints(); // Added ITS Token Management Endpoints

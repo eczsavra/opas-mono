@@ -430,9 +430,27 @@ export default function Registration() {
       }, 1000)
       return () => clearTimeout(timer)
     } else if (registrationSuccess.show && countdown === 0) {
+      // ⚠️ CRITICAL: Clear ALL storage for this GLN before redirecting to login
+      // This prevents old tenant data from appearing for newly registered tenants with same GLN
+      console.log(`🧹 Clearing all storage for new tenant registration: ${gln}`)
+      
+      // Clear everything (auth will be fresh after login anyway)
+      localStorage.clear()
+      sessionStorage.clear()
+      
+      // Also clear IndexedDB (cached products)
+      try {
+        if (typeof window !== 'undefined' && window.indexedDB) {
+          window.indexedDB.deleteDatabase('opasDB')
+          console.log('🧹 IndexedDB cleared')
+        }
+      } catch (err) {
+        console.warn('IndexedDB clear failed (non-critical):', err)
+      }
+      
       window.location.href = '/t-login'
     }
-  }, [registrationSuccess.show, countdown])
+  }, [registrationSuccess.show, countdown, gln])
 
   const validateGLN = async (glnValue: string) => {
     if (!glnValue || glnValue.length !== 13) {
