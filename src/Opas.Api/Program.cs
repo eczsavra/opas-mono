@@ -50,6 +50,10 @@ builder.Services.AddLocalization();
 // ✅ HttpContextAccessor (tek kez)
 builder.Services.AddHttpContextAccessor();
 
+// ✅ Authentication & Authorization
+builder.Services.AddAuthentication();
+builder.Services.AddAuthorization();
+
 // ✅ MediatR (tek kez)
 builder.Services.AddMediatR(cfg =>
 {
@@ -148,6 +152,10 @@ app.Use(async (ctx, next) =>
     await next();
 });
 
+// Authentication & Authorization
+app.UseAuthentication();
+app.UseAuthorization();
+
 // Request culture (yalnızca tr-TR)
 var supportedCultures = new[] { new CultureInfo("tr-TR") };
 app.UseRequestLocalization(new RequestLocalizationOptions
@@ -197,6 +205,11 @@ app.MapTenantProductSyncEndpoints();
 app.MapTenantGlnSyncEndpoints(); // Added Tenant GLN Sync Endpoints (Central DB → Tenant DB)
 app.MapTenantProductEndpoints(); // Added Tenant Product Management Endpoints
 app.MapDraftSalesEndpoints(); // Added Draft Sales Endpoints (Persistent Sales Tabs)
+app.MapStockMovementEndpoints(); // Added Stock Movement Endpoints (Inventory Management)
+app.MapStockSummaryEndpoints(); // Added Stock Summary Endpoints (Real-time Inventory Status)
+app.MapSalesEndpoints(); // Added Sales Endpoints (Complete Sale, Sales History)
+app.MapStockBatchEndpoints(); // Added Stock Batch Endpoints (OTC Product Batch Management)
+app.MapStockImportEndpoints(); // Added Stock Import Endpoints (File-based Bulk Import)
 app.MapGlnRegistryEndpoints(); // Added GLN Registry Endpoints
 app.MapSearchEndpoints(); // NEW - Search endpoints
 app.MapInfraItsTokenEndpoints(); // Added ITS Token Management Endpoints

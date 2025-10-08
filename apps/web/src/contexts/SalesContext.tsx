@@ -26,6 +26,12 @@ interface Product {
   manufacturerName: string
   price: number
   quantity?: number
+  category?: string
+  unitCost?: number
+  stockQuantity?: number
+  serialNumber?: string
+  expiryDate?: string
+  lotNumber?: string
 }
 
 interface SaleTab {
@@ -35,6 +41,8 @@ interface SaleTab {
   searchQuery: string
   color: string
   products: Product[] // Her tab'ın kendi ürün listesi
+  paymentMethod?: string // CASH, CARD, CREDIT, CONSIGNMENT, IBAN, QR
+  saleType?: string // NORMAL, CONSIGNMENT
 }
 
 interface SalesContextType {
@@ -136,6 +144,12 @@ export function SalesProvider({ children }: { children: ReactNode }) {
                     manufacturer: string
                     price: number
                     quantity: number
+                    category?: string
+                    unitCost?: number
+                    stockQuantity?: number
+                    serialNumber?: string
+                    expiryDate?: string
+                    lotNumber?: string
                   }>
                 }) => {
                   const tabNumber = parseInt(draft.tabLabel.replace(/[^0-9]/g, ''), 10) || 1
@@ -152,7 +166,14 @@ export function SalesProvider({ children }: { children: ReactNode }) {
                     drugName: p.drugName,
                     manufacturerName: p.manufacturer,
                     price: p.price,
-                    quantity: p.quantity
+                    quantity: p.quantity,
+                    // ✅ CRITICAL: Preserve all product fields!
+                    category: p.category,
+                    unitCost: p.unitCost,
+                    stockQuantity: p.stockQuantity,
+                    serialNumber: p.serialNumber,
+                    expiryDate: p.expiryDate,
+                    lotNumber: p.lotNumber
                   }))
                 }
               })
@@ -252,7 +273,14 @@ export function SalesProvider({ children }: { children: ReactNode }) {
               manufacturer: p.manufacturerName,
               price: p.price,
               quantity: p.quantity || 1,
-              totalPrice: (p.price * (p.quantity || 1))
+              totalPrice: (p.price * (p.quantity || 1)),
+              // ✅ CRITICAL: Include all product fields for persistence!
+              category: p.category,
+              unitCost: p.unitCost,
+              stockQuantity: p.stockQuantity,
+              serialNumber: p.serialNumber,
+              expiryDate: p.expiryDate,
+              lotNumber: p.lotNumber
             })),
             isCompleted: false,
             createdBy: username,

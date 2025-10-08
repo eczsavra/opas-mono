@@ -1,0 +1,279 @@
+### ========================================
+### STOCK IMPORT MODULE TESTS
+### ========================================
+### Test dosyadan toplu stok içe aktarma
+###
+### Gereksinimler:
+### 1. Tenant login yapılmış olmalı
+### 2. Test dosyası hazır olmalı (Excel/CSV)
+###
+### ========================================
+
+@baseUrl = http://localhost:5000
+@tenantId = TNT_8680001530144
+@username = savra
+
+### ========================================
+### TEST 1: Analyze Excel File (Sample)
+### ========================================
+### Not: Bu test için bir Excel dosyası hazırlamanız gerekir
+### Örnek Excel yapısı:
+### | Ürün Adı | Miktar | GTIN | Birim Fiyat |
+### | PAROL 500 MG TABLET | 100 | 8699546524536 | 1.50 |
+### | ASPİRİN 100 MG TABLET | 50 | 8699546524543 | 0.75 |
+###
+### Dosya yolu: C:\OPAS\test_stock_import.xlsx
+### ========================================
+
+POST {{baseUrl}}/api/opas/tenant/stock/import/analyze
+X-TenantId: {{tenantId}}
+X-Username: {{username}}
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary
+
+------WebKitFormBoundary
+Content-Disposition: form-data; name="file"; filename="test_stock_import.xlsx"
+Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+
+< C:\OPAS\test_stock_import.xlsx
+------WebKitFormBoundary--
+
+### ========================================
+### TEST 2: Analyze CSV File (Sample)
+### ========================================
+### CSV Örneği:
+### Ürün Adı,Miktar,GTIN
+### PAROL 500 MG TABLET,100,8699546524536
+### ASPİRİN 100 MG TABLET,50,8699546524543
+###
+### Dosya yolu: C:\OPAS\test_stock_import.csv
+### ========================================
+
+POST {{baseUrl}}/api/opas/tenant/stock/import/analyze
+X-TenantId: {{tenantId}}
+X-Username: {{username}}
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary
+
+------WebKitFormBoundary
+Content-Disposition: form-data; name="file"; filename="test_stock_import.csv"
+Content-Type: text/csv
+
+< C:\OPAS\test_stock_import.csv
+------WebKitFormBoundary--
+
+### ========================================
+### TEST 3: Execute Import (After Analysis)
+### ========================================
+### Not: Bu test önceki analiz sonucunda dönen
+### product_id'leri kullanarak çalışır
+### ========================================
+
+POST {{baseUrl}}/api/opas/tenant/stock/import/execute
+X-TenantId: {{tenantId}}
+X-Username: {{username}}
+Content-Type: application/json
+
+{
+  "rows": [
+    {
+      "rowNumber": 2,
+      "productId": "PROD_8699546524536",
+      "quantity": 100,
+      "unitCost": 1.50,
+      "bonusQuantity": 10,
+      "serialNumber": null,
+      "expiryDate": null,
+      "notes": "Test import - PAROL"
+    },
+    {
+      "rowNumber": 3,
+      "productId": "PROD_8699546524543",
+      "quantity": 50,
+      "unitCost": 0.75,
+      "bonusQuantity": 5,
+      "serialNumber": null,
+      "expiryDate": null,
+      "notes": "Test import - ASPİRİN"
+    }
+  ]
+}
+
+### ========================================
+### TEST 4: Test with TSV File
+### ========================================
+### TSV (Tab Separated) Example:
+### Ürün Adı\tMiktar\tGTIN
+### PAROL 500 MG TABLET\t100\t8699546524536
+### ASPİRİN 100 MG TABLET\t50\t8699546524543
+### ========================================
+
+POST {{baseUrl}}/api/opas/tenant/stock/import/analyze
+X-TenantId: {{tenantId}}
+X-Username: {{username}}
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary
+
+------WebKitFormBoundary
+Content-Disposition: form-data; name="file"; filename="test_stock_import.tsv"
+Content-Type: text/tab-separated-values
+
+< C:\OPAS\test_stock_import.tsv
+------WebKitFormBoundary--
+
+### ========================================
+### TEST 5: Error Test - Unsupported File Type
+### ========================================
+
+POST {{baseUrl}}/api/opas/tenant/stock/import/analyze
+X-TenantId: {{tenantId}}
+X-Username: {{username}}
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary
+
+------WebKitFormBoundary
+Content-Disposition: form-data; name="file"; filename="test.pdf"
+Content-Type: application/pdf
+
+< C:\OPAS\test.pdf
+------WebKitFormBoundary--
+
+### ========================================
+### ÖRNEK TEST DOSYALARI OLUŞTURMA
+### ========================================
+### 
+### Excel/CSV test dosyası oluşturmak için:
+### 
+### 1. Excel Dosyası (test_stock_import.xlsx):
+###    - Column A: Ürün Adı
+###    - Column B: Miktar
+###    - Column C: GTIN
+###    - Satır 1: Header
+###    - Satır 2+: Data
+###
+### 2. CSV Dosyası (test_stock_import.csv):
+###    Ürün Adı,Miktar,GTIN
+###    PAROL 500 MG TABLET,100,8699546524536
+###    ASPİRİN 100 MG TABLET,50,8699546524543
+###    CORASPIN 100 MG TABLET,75,8699546525001
+###
+### 3. TSV Dosyası (test_stock_import.tsv):
+###    Ürün Adı[TAB]Miktar[TAB]GTIN
+###    PAROL 500 MG TABLET[TAB]100[TAB]8699546524536
+###    ASPİRİN 100 MG TABLET[TAB]50[TAB]8699546524543
+###
+### ========================================
+### EXPECTED RESPONSES
+### ========================================
+###
+### Analyze Response:
+### {
+###   "detectedColumns": [
+###     {
+###       "originalHeader": "Ürün Adı",
+###       "detectedField": "product_name",
+###       "columnIndex": 0,
+###       "confidenceScore": 100
+###     },
+###     {
+###       "originalHeader": "Miktar",
+###       "detectedField": "quantity",
+###       "columnIndex": 1,
+###       "confidenceScore": 100
+###     }
+###   ],
+###   "rows": [
+###     {
+###       "rowNumber": 2,
+###       "rawData": {
+###         "Ürün Adı": "PAROL 500 MG TABLET",
+###         "Miktar": "100"
+###       },
+###       "match": {
+###         "productId": "PROD_8699546524536",
+###         "productName": "PAROL 500 MG TABLET",
+###         "matchType": "exact_name",
+###         "matchScore": 100
+###       }
+###     }
+###   ],
+###   "totalRows": 2,
+###   "matchedRows": 2,
+###   "unmatchedRows": 0
+### }
+###
+### Execute Response:
+### {
+###   "totalProcessed": 2,
+###   "successful": 2,
+###   "failed": 0
+### }
+###
+### ========================================
+
+### ========================================
+### TEST 5: Import with NEW PRODUCT
+### ========================================
+### Bu test, eşleşmeyen ürünlerin yeni ürün olarak
+### eklenmesini test eder
+### ========================================
+
+POST {{baseUrl}}/api/opas/tenant/stock/import/execute
+X-TenantId: {{tenantId}}
+X-Username: {{username}}
+Content-Type: application/json
+
+{
+  "rows": [
+    {
+      "rowNumber": 1,
+      "productId": "NEW_PRODUCT_PLACEHOLDER",
+      "quantity": 50,
+      "unitCost": 12.50,
+      "bonusQuantity": 5,
+      "serialNumber": null,
+      "expiryDate": null,
+      "notes": "Yeni ürün - Dosyadan import",
+      "isNewProduct": true,
+      "newProduct": {
+        "productName": "VİTAMİN C 1000 MG TABLET",
+        "gtin": "1234567890123",
+        "manufacturer": "XYZ İlaç A.Ş.",
+        "price": 15.75,
+        "description": "Dosyadan import edildi"
+      }
+    },
+    {
+      "rowNumber": 2,
+      "productId": "NEW_PRODUCT_PLACEHOLDER",
+      "quantity": 30,
+      "unitCost": null,
+      "bonusQuantity": null,
+      "serialNumber": null,
+      "expiryDate": "2026-12-31",
+      "notes": "Yeni ürün - Dosyadan import",
+      "isNewProduct": true,
+      "newProduct": {
+        "productName": "OMEGA-3 BALIK YAĞI KAPSÜL",
+        "gtin": null,
+        "manufacturer": "ABC Gıda",
+        "price": null,
+        "description": "Dosyadan import edildi"
+      }
+    }
+  ]
+}
+
+###
+### Expected Response:
+### {
+###   "totalProcessed": 2,
+###   "successful": 2,
+###   "failed": 0,
+###   "errors": []
+### }
+###
+### Doğrulama:
+### 1. products tablosunda 2 yeni ürün oluşmalı
+### 2. stock_movements tablosunda 2 kayıt oluşmalı
+### 3. stock_summary güncellenmiş olmalı
+### 4. Yeni ürünlerin product_id'leri GTIN bazlı olmalı
+###
+### ========================================
+

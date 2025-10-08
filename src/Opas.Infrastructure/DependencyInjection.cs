@@ -67,6 +67,12 @@ public static class DependencyInjection
         // Search Services
         services.AddScoped<ISearchService, SearchService>(); // NEW - Search service
 
+        // Stock Import Services
+        services.AddScoped<FileParserService>();
+        services.AddScoped<ColumnDetectionService>();
+        services.AddScoped<ProductMatchingService>();
+        services.AddScoped<StockImportService>();
+
         // Scheduled Jobs
         services.AddHostedService<ProductSyncScheduler>();
 

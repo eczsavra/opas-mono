@@ -36,9 +36,11 @@ export async function POST(request: Request) {
 
     const result = await response.json()
     
-    // ✅ TENANT ID COOKIE'Sİ SET ET
-    if (result.success && result.user?.tenantId) {
+    // ✅ TENANT ID VE USERNAME COOKIE'LERİNİ SET ET
+    if (result.success && result.user?.tenantId && result.user?.username) {
       const cookieStore = await cookies()
+      
+      // Tenant ID
       cookieStore.set('x-tenant-id', result.user.tenantId, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
@@ -46,7 +48,17 @@ export async function POST(request: Request) {
         path: '/',
         maxAge: 60 * 60 * 24 * 7 // 7 gün
       })
-      console.log('✅ Tenant ID cookie set edildi:', result.user.tenantId)
+      
+      // Username
+      cookieStore.set('x-username', result.user.username, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 60 * 60 * 24 * 7 // 7 gün
+      })
+      
+      console.log('✅ Tenant ID ve Username cookie set edildi:', result.user.tenantId, result.user.username)
     }
     
     return NextResponse.json(result)

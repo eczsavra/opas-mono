@@ -195,3 +195,13 @@ C:\OPAS\src\Opas.Api\bin\Debug\net8.0\Opas.Api.pdb
 C:\OPAS\src\Opas.Api\obj\Debug\net8.0\Opas.Api.csproj.Up2Date
 C:\OPAS\src\Opas.Api\obj\Debug\net8.0\Opas.Api.genruntimeconfig.cache
 C:\OPAS\src\Opas.Api\obj\Debug\net8.0\ref\Opas.Api.dll
+C:\OPAS\src\Opas.Api\bin\Debug\net8.0\CsvHelper.dll
+C:\OPAS\src\Opas.Api\bin\Debug\net8.0\EPPlus.dll
+C:\OPAS\src\Opas.Api\bin\Debug\net8.0\EPPlus.Interfaces.dll
+C:\OPAS\src\Opas.Api\bin\Debug\net8.0\FuzzySharp.dll
+C:\OPAS\src\Opas.Api\bin\Debug\net8.0\Microsoft.Extensions.Configuration.FileExtensions.dll
+C:\OPAS\src\Opas.Api\bin\Debug\net8.0\Microsoft.Extensions.Configuration.Json.dll
+C:\OPAS\src\Opas.Api\bin\Debug\net8.0\Microsoft.IO.RecyclableMemoryStream.dll
+C:\OPAS\src\Opas.Api\bin\Debug\net8.0\System.Security.Cryptography.Pkcs.dll
+C:\OPAS\src\Opas.Api\bin\Debug\net8.0\System.Security.Cryptography.Xml.dll
+C:\OPAS\src\Opas.Api\bin\Debug\net8.0\runtimes\win\lib\net8.0\System.Security.Cryptography.Pkcs.dll

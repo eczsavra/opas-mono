@@ -3,16 +3,17 @@ import { NextRequest, NextResponse } from 'next/server'
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams
-    const search = searchParams.get('search') || ''
+    const search = searchParams.get('query') || searchParams.get('search') || ''
     const page = searchParams.get('page') || '1'
     const pageSize = searchParams.get('pageSize') || '20'
     
-    // Get tenant ID from cookie
-    const tenantId = request.cookies.get('x-tenant-id')?.value
+    // Try cookies first, then headers
+    const tenantId = request.cookies.get('x-tenant-id')?.value || request.headers.get('x-tenant-id')
+    const username = request.cookies.get('x-username')?.value || request.headers.get('x-username')
     
-    if (!tenantId) {
+    if (!tenantId || !username) {
       return NextResponse.json(
-        { error: 'Tenant ID not found' },
+        { error: 'Authentication required' },
         { status: 401 }
       )
     }

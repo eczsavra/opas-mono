@@ -215,7 +215,7 @@ export default function SatisPage() {
                 value={activeTab}
                 onChange={handleTabChange}
                 variant="scrollable"
-                scrollButtons="auto"
+                scrollButtons={true}
                 allowScrollButtonsMobile
                 sx={{
                   minHeight: 56, // ⚠️ Daha yüksek tab bar

@@ -58,6 +58,12 @@ public sealed class TenantDbContext : DbContext
             e.Property(x => x.IsActive).HasColumnName("is_active");
             e.Property(x => x.LastItsSyncAt).HasColumnName("last_its_sync_at");
             
+            // Product category and tracking fields
+            e.Property(x => x.Category).HasColumnName("category").HasMaxLength(50);
+            e.Property(x => x.HasDatamatrix).HasColumnName("has_datamatrix");
+            e.Property(x => x.RequiresExpiryTracking).HasColumnName("requires_expiry_tracking");
+            e.Property(x => x.IsControlled).HasColumnName("is_controlled");
+            
             // User tracking fields
             e.Property(x => x.CreatedBy).HasColumnName("created_by").HasMaxLength(100);
             e.Property(x => x.UpdatedBy).HasColumnName("updated_by").HasMaxLength(100);

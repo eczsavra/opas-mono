@@ -16,21 +16,19 @@ import {
   Chip,
   Accordion,
   AccordionSummary,
-  AccordionDetails
+  AccordionDetails,
+  Button
 } from '@mui/material'
 import { 
   Search as SearchIcon, 
   ContentPaste as PasteIcon,
   Clear as ClearIcon,
-  ShoppingCart as CartIcon,
-  AttachMoney as MoneyIcon,
-  LocalOffer as OfferIcon,
-  Receipt as ReceiptIcon,
   Delete as DeleteIcon
 } from '@mui/icons-material'
 import { styled } from '@mui/material/styles'
 import { useSalesContext } from '@/contexts/SalesContext'
 import { useProductSearch } from '@/hooks/useProductSearch'
+import { parseDataMatrix, isDataMatrix, extractGTIN, type DataMatrixResult } from '@/utils/dataMatrixParser'
 
 const StyledAutocomplete = styled(Autocomplete<Product, false, false, true>)(({ theme }) => ({
   '& .MuiOutlinedInput-root': {
@@ -109,6 +107,13 @@ interface Product {
   manufacturerName: string
   price: number
   quantity?: number // Adet bilgisi
+  category?: string // PHARMACEUTICAL | OTC
+  unitCost?: number // Maliyet (stock_summary'den gelecek)
+  stockQuantity?: number // Gerçek stok miktarı
+  // Karekod bilgileri (opsiyonel)
+  serialNumber?: string
+  expiryDate?: string
+  lotNumber?: string
 }
 
 interface ModernSearchBoxProps {
@@ -176,12 +181,8 @@ export default function ModernSearchBox({ tabId, onProductSelect }: ModernSearch
     }
   }, [searchWithCache])
 
-  const handleInputChange = (_event: React.SyntheticEvent, newInputValue: string) => {
-    setInputValue(newInputValue)
-    searchProducts(newInputValue)
-  }
-
-  const addProduct = (product: Product) => {
+  // addProduct - searchByGTIN'den önce tanımlanmalı
+  const addProduct = useCallback((product: Product) => {
     // Ürün zaten listede var mı kontrol et
     const existingIndex = selectedProducts.findIndex(p => p.gtin === product.gtin)
     
@@ -208,6 +209,91 @@ export default function ModernSearchBox({ tabId, onProductSelect }: ModernSearch
     setOptions([])
     setHighlightedIndex(0)
     setOpen(false)
+  }, [selectedProducts, tabId, updateTab, onProductSelect])
+
+  const searchByGTIN = useCallback(async (gtin: string, dataMatrixResult?: DataMatrixResult) => {
+    setLoading(true)
+    
+    try {
+      const tenantId = localStorage.getItem('tenantId')
+      const username = localStorage.getItem('username')
+      
+      if (!tenantId || !username) {
+        console.error('Missing credentials')
+        return
+      }
+
+      // GTIN ile backend'de ara
+      const response = await fetch(`/api/opas/tenant/products/search?query=${encodeURIComponent(gtin)}&username=${encodeURIComponent(username)}`, {
+        headers: {
+          'X-TenantId': tenantId,
+          'X-Username': username
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error('GTIN search failed')
+      }
+
+       const data = await response.json()
+       
+       if (data && data.length > 0) {
+         const product = {
+           id: data[0].product_id,
+           gtin: data[0].gtin || gtin,
+           drugName: data[0].drug_name,
+           manufacturerName: data[0].manufacturer_name || '',
+           price: data[0].price || 0,
+           quantity: 1,
+           category: data[0].category || 'DRUG', // İTS'den gelen ürünler ilaç
+           unitCost: data[0].unit_cost,
+           stockQuantity: data[0].stock_quantity ?? 0, // Gerçek stok bilgisi
+           // Karekod bilgilerini ekle
+           ...(dataMatrixResult && {
+             serialNumber: dataMatrixResult.serialNumber || undefined,
+             expiryDate: dataMatrixResult.expiryDate || undefined,
+             lotNumber: dataMatrixResult.lotNumber || undefined
+           })
+         }
+        
+        // Direkt ekle
+        addProduct(product)
+        
+        console.log('✅ Ürün GTIN ile bulundu ve eklendi:', dataMatrixResult ? 'Karekoddan' : 'Barkoddan')
+      } else {
+        console.log('❌ GTIN bulunamadı:', gtin)
+        setInputValue('')
+      }
+    } catch (error) {
+      console.error('GTIN search error:', error)
+    } finally {
+      setLoading(false)
+    }
+  }, [addProduct])
+
+  const handleInputChange = async (_event: React.SyntheticEvent, newInputValue: string) => {
+    setInputValue(newInputValue)
+    
+    // Karekod veya GTIN kontrolü
+    if (isDataMatrix(newInputValue)) {
+      // Karekod parse et
+      const result = parseDataMatrix(newInputValue)
+      if (result.isValid && result.gtin) {
+        // GTIN ile ürün ara
+        await searchByGTIN(result.gtin, result)
+        return
+      }
+    }
+    
+    // GTIN ile arama
+    const gtin = extractGTIN(newInputValue)
+    if (gtin) {
+      await searchByGTIN(gtin)
+      return
+    }
+    
+    // Normal isim araması
+    searchProducts(newInputValue)
   }
 
   const handleChange = () => {
@@ -503,8 +589,23 @@ export default function ModernSearchBox({ tabId, onProductSelect }: ModernSearch
                     {product.drugName}
                   </Typography>
 
-                  {/* Sağ: Adet, Stok ve Sil Butonu */}
+                  {/* Sağ: Kategori, Adet, Maliyet/Fiyat ve Sil Butonu */}
                          <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexShrink: 0 }}>
+                           {/* Kategori Badge */}
+                           <Chip 
+                             label={product.category === 'DRUG' || product.category === 'PHARMACEUTICAL' ? 'İlaç' : 'OTC'}
+                             size="small"
+                             sx={{ 
+                               fontWeight: 600,
+                               backgroundColor: (product.category === 'DRUG' || product.category === 'PHARMACEUTICAL')
+                                 ? alpha('#2196f3', 0.12) 
+                                 : alpha('#4caf50', 0.12),
+                               color: (product.category === 'DRUG' || product.category === 'PHARMACEUTICAL') ? '#1565c0' : '#2e7d32',
+                               border: `1px solid ${(product.category === 'DRUG' || product.category === 'PHARMACEUTICAL') ? alpha('#2196f3', 0.3) : alpha('#4caf50', 0.3)}`
+                             }}
+                           />
+                           
+                           {/* Adet */}
                            <Chip 
                              label={`Adet: ${product.quantity || 1}`}
                              size="small"
@@ -515,16 +616,35 @@ export default function ModernSearchBox({ tabId, onProductSelect }: ModernSearch
                                border: `1px solid ${alpha('#4caf50', 0.3)}`
                              }}
                            />
-                    <Chip 
-                      label="Stok: 150" 
-                      size="small"
-                      sx={{ 
-                        fontWeight: 600,
-                        backgroundColor: alpha('#ff9800', 0.12),
-                        color: '#e65100',
-                        border: `1px solid ${alpha('#ff9800', 0.3)}`
-                      }}
-                    />
+                           
+                            {/* Stok Bilgisi - GERÇEK VERİ */}
+                            <Chip 
+                              label={`Stok: ${product.stockQuantity ?? 0}`}
+                              size="small"
+                              sx={{ 
+                                fontWeight: 600,
+                                backgroundColor: (product.stockQuantity ?? 0) > 10 
+                                  ? alpha('#4caf50', 0.12) 
+                                  : (product.stockQuantity ?? 0) > 0 
+                                    ? alpha('#ff9800', 0.12) 
+                                    : alpha('#f44336', 0.12),
+                                color: (product.stockQuantity ?? 0) > 10 
+                                  ? '#2e7d32' 
+                                  : (product.stockQuantity ?? 0) > 0 
+                                    ? '#f57c00' 
+                                    : '#d32f2f',
+                                border: `1px solid ${(product.stockQuantity ?? 0) > 10 
+                                  ? alpha('#4caf50', 0.3) 
+                                  : (product.stockQuantity ?? 0) > 0 
+                                    ? alpha('#ff9800', 0.3) 
+                                    : alpha('#f44336', 0.3)}`
+                              }}
+                            />
+                           
+                           {/* Maliyet/Fiyat */}
+                           <Typography variant="caption" sx={{ fontSize: '0.75rem', fontWeight: 700, color: 'primary.main' }}>
+                             {product.unitCost ? `${product.unitCost.toFixed(1)}` : '-'}/{product.price.toFixed(2)}₺
+                           </Typography>
                     <Box
                       component="span"
                       onClick={(e) => {
@@ -599,6 +719,7 @@ export default function ModernSearchBox({ tabId, onProductSelect }: ModernSearch
                       </Typography>
                     </Box>
                   </Box>
+
                 </Box>
               </AccordionDetails>
             </Accordion>
@@ -606,148 +727,263 @@ export default function ModernSearchBox({ tabId, onProductSelect }: ModernSearch
         </Box>
       </Box>
 
-      {/* Sağ Taraf - Satış Özeti */}
-      <Card 
-        elevation={0}
-        sx={{ 
-          width: '100%',
-          minWidth: 0,
-          borderRadius: 4,
-          background: `linear-gradient(135deg, ${alpha('#1976d2', 0.05)} 0%, ${alpha('#42a5f5', 0.05)} 100%)`,
-          border: `2px solid ${alpha('#1976d2', 0.12)}`,
-          backdropFilter: 'blur(10px)',
-          height: 'fit-content',
-          maxHeight: '100%', // Parent yüksekliğini aşmasın
-          overflowY: 'auto', // Gerekirse scroll
-          transition: 'all 0.3s ease',
-          '&:hover': {
-            boxShadow: `0 12px 40px ${alpha('#1976d2', 0.15)}`,
-            transform: 'translateY(-2px)',
-          }
-        }}
-      >
-        <Box sx={{ p: 3 }}>
-          {/* Header */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
-            <Box 
-              sx={{ 
-                width: 48,
-                height: 48,
-                borderRadius: 3,
-                background: `linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)`,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: `0 4px 16px ${alpha('#1976d2', 0.3)}`
-              }}
-            >
-              <ReceiptIcon sx={{ color: 'white', fontSize: 28 }} />
-            </Box>
-            <Box>
-              <Typography variant="h6" sx={{ fontWeight: 700, color: 'text.primary', letterSpacing: -0.5 }}>
-                Satış Özeti
-              </Typography>
-              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                Anlık durum
-              </Typography>
+       {/* Sağ Taraf - Satış Özeti - YENİ TASARIM */}
+       <Card 
+         elevation={3}
+         sx={{ 
+           width: '100%',
+           minWidth: 0,
+           borderRadius: 3,
+           background: '#fff',
+           border: `1px solid ${alpha('#000', 0.08)}`,
+           height: '100%',
+           maxHeight: 'calc(100vh - 200px)',
+           display: 'flex',
+           flexDirection: 'column',
+           overflow: 'hidden'
+         }}
+       >
+        {/* Header - Kompakt */}
+        <Box sx={{ 
+          p: 2, 
+          borderBottom: `2px solid ${alpha('#1976d2', 0.1)}`,
+          background: `linear-gradient(135deg, ${alpha('#1976d2', 0.03)} 0%, ${alpha('#42a5f5', 0.03)} 100%)`
+        }}>
+          <Typography variant="h6" sx={{ fontWeight: 800, color: '#1976d2', fontSize: '1.1rem' }}>
+            SATIŞ ÖZETİ
+          </Typography>
+        </Box>
+
+        {/* Stats - Kompakt */}
+        <Box sx={{ 
+          p: 2, 
+          flex: 1, 
+          display: 'flex', 
+          flexDirection: 'column', 
+          gap: 1.5,
+          overflow: 'auto',
+          minHeight: 0
+        }}>
+          {/* Ürün Sayısı + Toplam */}
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, fontSize: '0.75rem' }}>
+              ÜRÜN
+            </Typography>
+            <Typography variant="body2" sx={{ fontWeight: 700 }}>
+              {salesSummary.totalItems} Adet
+            </Typography>
+          </Box>
+
+          <Divider />
+
+          {/* Ödeme Yöntemi */}
+          <Box>
+            <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, fontSize: '0.75rem', mb: 0.5, display: 'block' }}>
+              ÖDEME YÖNTEMİ
+            </Typography>
+            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 0.5 }}>
+              {['CASH', 'CARD', 'CREDIT', 'CONSIGNMENT', 'IBAN', 'QR'].map((method) => (
+                <Button
+                  key={method}
+                  variant={currentTab?.paymentMethod === method ? 'contained' : 'outlined'}
+                  size="small"
+                  onClick={() => updateTab(tabId, { paymentMethod: method })}
+                  sx={{
+                    py: 0.4,
+                    px: 0.3,
+                    fontWeight: 600,
+                    fontSize: '0.65rem',
+                    borderRadius: 1,
+                    textTransform: 'none',
+                    minHeight: 26,
+                    ...(currentTab?.paymentMethod === method && {
+                      bgcolor: '#1976d2',
+                      color: 'white'
+                    })
+                  }}
+                >
+                  {method === 'CASH' ? 'Nakit' :
+                   method === 'CARD' ? 'Kart' :
+                   method === 'CREDIT' ? 'Veresiye' :
+                   method === 'CONSIGNMENT' ? 'Emanet' :
+                   method === 'IBAN' ? 'IBAN' : 'QR'}
+                </Button>
+              ))}
             </Box>
           </Box>
 
-          {/* Stats */}
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {/* Toplam Ürün */}
-            <Box 
-              sx={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'space-between',
-                p: 2,
-                borderRadius: 2,
-                backgroundColor: alpha('#fff', 0.6),
-                transition: 'all 0.2s ease',
-                '&:hover': {
-                  backgroundColor: alpha('#fff', 0.9),
-                  transform: 'translateX(4px)',
+          <Divider />
+
+          {/* Satış Tipi */}
+          <Box>
+            <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, fontSize: '0.75rem', mb: 0.5, display: 'block' }}>
+              SATIŞ TİPİ
+            </Typography>
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0.5 }}>
+              {['NORMAL', 'CONSIGNMENT'].map((type) => (
+                <Button
+                  key={type}
+                  variant={currentTab?.saleType === type ? 'contained' : 'outlined'}
+                  size="small"
+                  onClick={() => updateTab(tabId, { saleType: type })}
+                  sx={{
+                    py: 0.4,
+                    fontWeight: 600,
+                    fontSize: '0.7rem',
+                    borderRadius: 1,
+                    textTransform: 'none',
+                    minHeight: 26,
+                    ...(currentTab?.saleType === type && {
+                      bgcolor: '#2e7d32',
+                      color: 'white'
+                    })
+                  }}
+                >
+                  {type === 'NORMAL' ? 'Normal Satış' : 'Emanet'}
+                </Button>
+              ))}
+            </Box>
+          </Box>
+
+          <Box sx={{ flex: 1 }} /> {/* Spacer */}
+
+          <Divider />
+
+          {/* Toplam Tutar */}
+          <Box sx={{ 
+            p: 1.5, 
+            bgcolor: alpha('#1976d2', 0.05), 
+            borderRadius: 2,
+            border: `2px solid ${alpha('#1976d2', 0.15)}`
+          }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="body2" sx={{ fontWeight: 700, color: '#1976d2' }}>
+                TOPLAM
+              </Typography>
+              <Typography variant="h6" sx={{ fontWeight: 800, color: '#1976d2' }}>
+                {salesSummary.total.toFixed(2)} ₺
+              </Typography>
+            </Box>
+          </Box>
+        </Box>
+
+        {/* Tamamla Butonu - Footer - SABIT - ALWAYS VISIBLE */}
+        <Box 
+          id="sales-complete-button-container"
+          sx={{ 
+            p: 1.5, 
+            borderTop: `3px solid ${alpha('#2e7d32', 0.3)}`,
+            flexShrink: 0,
+            backgroundColor: alpha('#f5f5f5', 0.5),
+            position: 'sticky',
+            bottom: 0,
+            zIndex: 10
+          }}>
+          <Button
+            variant="contained"
+            fullWidth
+            disabled={selectedProducts.length === 0 || !currentTab?.paymentMethod}
+            onClick={async () => {
+                if (!currentTab || selectedProducts.length === 0 || !currentTab.paymentMethod) return;
+
+                try {
+                  const tenantId = localStorage.getItem('tenantId');
+                  const username = localStorage.getItem('username');
+
+                  if (!tenantId || !username) {
+                    alert('Lütfen giriş yapın');
+                    return;
+                  }
+
+                  // Payload hazırla
+                  const payload = {
+                    tabId: currentTab.id,
+                    items: selectedProducts.map(p => ({
+                      productId: p.id,
+                      productName: p.drugName,
+                      productCategory: p.category,
+                      quantity: p.quantity || 1,
+                      unitPrice: p.price,
+                      unitCost: p.unitCost,
+                      discountRate: 0,
+                      totalPrice: (p.price || 0) * (p.quantity || 1),
+                      serialNumber: p.serialNumber,
+                      expiryDate: p.expiryDate,
+                      lotNumber: p.lotNumber,
+                      gtin: p.gtin
+                    })),
+                    payment: {
+                      method: currentTab.paymentMethod,
+                      amount: salesSummary.total,
+                      notes: null
+                    },
+                    saleType: currentTab.saleType || 'NORMAL',
+                    customer: null,
+                    notes: null
+                  };
+
+                  // API'ye gönder
+                  const response = await fetch('/api/opas/tenant/sales/complete', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'X-TenantId': tenantId,
+                      'X-Username': username
+                    },
+                    body: JSON.stringify(payload)
+                  });
+
+                  if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Satış tamamlanamadı');
+                  }
+
+                  const result = await response.json();
+                  
+                  // Başarılı!
+                  alert(`✅ Satış Tamamlandı!\n\nFiş No: ${result.saleNumber}\nTutar: ${result.totalAmount.toFixed(2)} ₺`);
+                  
+                  // Tab'ı temizle (products boş array olacak, backend zaten draft_sales'i siliyor)
+                  updateTab(tabId, { 
+                    products: [],
+                    paymentMethod: undefined,
+                    saleType: undefined
+                  });
+                  
+                } catch (error) {
+                  console.error('Satış hatası:', error);
+                  alert(`❌ Hata: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}`);
                 }
               }}
-            >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                <Box sx={{ 
-                  width: 36,
-                  height: 36,
-                  borderRadius: 2,
-                  backgroundColor: alpha('#1976d2', 0.1),
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  <CartIcon sx={{ fontSize: 20, color: 'primary.main' }} />
-                </Box>
-                <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.secondary' }}>
-                  Toplam Ürün
-                </Typography>
-              </Box>
-              <Chip 
-                label={salesSummary.totalItems} 
-                size="small"
-                sx={{ 
-                  fontWeight: 700,
-                  fontSize: '0.9rem',
-                  backgroundColor: alpha('#1976d2', 0.15),
-                  color: 'primary.main'
-                }}
-              />
-            </Box>
-
-            <Divider sx={{ my: 1 }} />
-
-            {/* Ara Toplam */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 1 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <MoneyIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
-                <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 500 }}>
-                  Ara Toplam
-                </Typography>
-              </Box>
-              <Typography variant="body1" sx={{ fontWeight: 700 }}>
-                {salesSummary.subtotal.toFixed(2)} ₺
-              </Typography>
-            </Box>
-
-            {/* İndirim */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 1 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <OfferIcon sx={{ fontSize: 18, color: 'success.main' }} />
-                <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 500 }}>
-                  İndirim
-                </Typography>
-              </Box>
-              <Typography variant="body1" sx={{ fontWeight: 700, color: 'success.main' }}>
-                -{salesSummary.discount.toFixed(2)} ₺
-              </Typography>
-            </Box>
-
-            <Divider sx={{ my: 1 }} />
-
-            {/* Toplam */}
-            <Box 
-              sx={{ 
-                p: 2.5,
-                borderRadius: 3,
-                background: `linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)`,
-                boxShadow: `0 6px 24px ${alpha('#1976d2', 0.3)}`,
-              }}
-            >
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography variant="body1" sx={{ color: 'white', fontWeight: 700, fontSize: '1.1rem', letterSpacing: 0.5 }}>
-                  TOPLAM
-                </Typography>
-                <Typography variant="h5" sx={{ color: 'white', fontWeight: 800, letterSpacing: -0.5 }}>
-                  {salesSummary.total.toFixed(2)} ₺
-                </Typography>
-              </Box>
-            </Box>
-          </Box>
+            sx={{
+              py: 1.8,
+              fontWeight: 800,
+              fontSize: '1.1rem',
+              textTransform: 'none',
+              borderRadius: 2,
+              boxShadow: 3,
+              // Aktif state
+              ...(selectedProducts.length > 0 && currentTab?.paymentMethod && {
+                bgcolor: '#2e7d32',
+                color: 'white',
+                '&:hover': {
+                  bgcolor: '#1b5e20',
+                  boxShadow: 6,
+                  transform: 'scale(1.02)'
+                }
+              }),
+              // Disabled state - daha belirgin
+              '&.Mui-disabled': {
+                bgcolor: alpha('#9e9e9e', 0.3),
+                color: alpha('#000', 0.5),
+                fontWeight: 700
+              }
+            }}
+          >
+            {!currentTab?.paymentMethod ? '⚠️ ÖNCE ÖDEME YÖNTEMİ SEÇİN' : 
+             selectedProducts.length === 0 ? '🛒 SEPETE ÜRÜN EKLEYİN' : 
+             `✅ SATIŞI TAMAMLA (${salesSummary.total.toFixed(2)} ₺)`}
+          </Button>
         </Box>
       </Card>
     </Box>

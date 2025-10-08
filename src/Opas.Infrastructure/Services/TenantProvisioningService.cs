@@ -82,7 +82,7 @@ public class TenantProvisioningService
             {
                 await conn.OpenAsync(ct);
                 
-                // Tenant tablolarını oluştur - sadece 3 tablo
+                // Tenant tablolarını oluştur
                 var createTablesSql = @"
                     -- Products tablosu (central_products'tan beslenir)
                     CREATE TABLE IF NOT EXISTS products (
@@ -99,10 +99,16 @@ public class TenantProvisioningService
                         created_at_utc TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
                         updated_at_utc TIMESTAMP WITH TIME ZONE,
                         created_by VARCHAR(100),
-                        updated_by VARCHAR(100)
+                        updated_by VARCHAR(100),
+                        category VARCHAR(50) DEFAULT 'DRUG' CHECK (category IN ('DRUG', 'NON_DRUG')),
+                        has_datamatrix BOOLEAN DEFAULT FALSE,
+                        requires_expiry_tracking BOOLEAN DEFAULT TRUE,
+                        is_controlled BOOLEAN DEFAULT FALSE
                     );
                     CREATE INDEX idx_products_gtin ON products(gtin);
                     CREATE INDEX idx_products_active ON products(is_active) WHERE is_active = TRUE;
+                    CREATE INDEX idx_products_category ON products(category);
+                    CREATE INDEX idx_products_datamatrix ON products(has_datamatrix) WHERE has_datamatrix = TRUE;
 
                     -- GLN List tablosu (gln_registry'den beslenir. Paydaş bilgileri - merkezi DB'den sync)
                     CREATE TABLE IF NOT EXISTS gln_list (
@@ -169,6 +175,333 @@ public class TenantProvisioningService
                     CREATE INDEX idx_draft_sales_completed ON draft_sales(is_completed) WHERE is_completed = FALSE;
                     CREATE INDEX idx_draft_sales_created_by ON draft_sales(created_by);
                     CREATE INDEX idx_draft_sales_display_order ON draft_sales(display_order) WHERE is_completed = FALSE;
+
+                    -- ========================================
+                    -- STOK MODÜLÜ TABLOLARI
+                    -- ========================================
+
+                    -- Hareket Tipleri (Referans Tablo)
+                    CREATE TABLE IF NOT EXISTS movement_types (
+                        code VARCHAR(50) PRIMARY KEY,
+                        name VARCHAR(200) NOT NULL,
+                        direction VARCHAR(10) NOT NULL CHECK (direction IN ('IN', 'OUT')),
+                        category VARCHAR(50) NOT NULL,
+                        is_active BOOLEAN DEFAULT TRUE,
+                        description TEXT,
+                        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+                    );
+
+                    -- Başlangıç verileri
+                    INSERT INTO movement_types (code, name, direction, category, description) VALUES
+                        ('SALE_RETAIL', 'Perakende Satış', 'OUT', 'SALE', 'Normal müşteri satışı'),
+                        ('SALE_PRESCRIPTION', 'Reçeteli Satış', 'OUT', 'SALE', 'SGK/Medula reçeteli satış'),
+                        ('SALE_INSURANCE', 'Özel Sigorta Satışı', 'OUT', 'SALE', 'Özel sağlık sigortası satışı'),
+                        ('SALE_CONSIGNMENT', 'Emanet Satış', 'OUT', 'SALE', 'Reçete sonra getirilecek'),
+                        ('SALE_CREDIT', 'Veresiye Satış', 'OUT', 'SALE', 'Borç, sonra ödenecek'),
+                        ('PURCHASE_DEPOT', 'Depodan Alış', 'IN', 'PURCHASE', 'Normal toptan alış'),
+                        ('PURCHASE_MARKETPLACE', 'Pazaryeri Alışı', 'IN', 'PURCHASE', 'Online platform alışı'),
+                        ('PURCHASE_OTHER', 'Diğer Alış', 'IN', 'PURCHASE', 'Depo dışı alış'),
+                        ('CUSTOMER_RETURN', 'Müşteri İadesi', 'IN', 'RETURN', 'Müşteriden ürün iadesi'),
+                        ('RETURN_TO_DEPOT', 'Depoya İade', 'OUT', 'RETURN', 'Depoya ürün iadesi'),
+                        ('EXCHANGE_IN', 'Takas Alış', 'IN', 'EXCHANGE', 'Başka eczacıdan alış'),
+                        ('EXCHANGE_OUT', 'Takas Satış', 'OUT', 'EXCHANGE', 'Başka eczacıya satış'),
+                        ('WASTE', 'Zayi/Fire', 'OUT', 'LOSS', 'Kırılma, SKT dolmuş, vb.'),
+                        ('UNKNOWN_IN', 'Sebebi Bilinmeyen Giriş', 'IN', 'OTHER', 'Müşteri getirdi, hediye, vb.'),
+                        ('CORRECTION', 'Manuel Düzeltme', 'IN', 'OTHER', 'Stok düzeltmesi')
+                    ON CONFLICT (code) DO NOTHING;
+
+                    -- Lokasyonlar (Raf/Dolap Takibi)
+                    CREATE TABLE IF NOT EXISTS storage_locations (
+                        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                        location_code VARCHAR(50) UNIQUE NOT NULL,
+                        location_name VARCHAR(200) NOT NULL,
+                        location_type VARCHAR(50) NOT NULL CHECK (location_type IN ('SHELF', 'CABINET', 'REFRIGERATOR', 'VAULT', 'OTHER')),
+                        parent_location_id UUID REFERENCES storage_locations(id),
+                        temperature_controlled BOOLEAN DEFAULT FALSE,
+                        prescription_only BOOLEAN DEFAULT FALSE,
+                        is_active BOOLEAN DEFAULT TRUE,
+                        notes TEXT,
+                        created_by VARCHAR(100),
+                        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+                    );
+                    CREATE INDEX idx_storage_locations_code ON storage_locations(location_code);
+                    CREATE INDEX idx_storage_locations_active ON storage_locations(is_active) WHERE is_active = TRUE;
+
+                    -- Stok Hareketleri (DEFTER - EN ÖNEMLİ!)
+                    CREATE TABLE IF NOT EXISTS stock_movements (
+                        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                        movement_number VARCHAR(50) UNIQUE NOT NULL,
+                        movement_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+                        movement_type VARCHAR(50) NOT NULL REFERENCES movement_types(code),
+                        product_id UUID NOT NULL,
+                        quantity_change INT NOT NULL,
+                        unit_cost DECIMAL(18,4),
+                        total_cost DECIMAL(18,2),
+                        serial_number VARCHAR(100),
+                        lot_number VARCHAR(100),
+                        expiry_date DATE,
+                        gtin VARCHAR(50),
+                        batch_id UUID,
+                        reference_type VARCHAR(50),
+                        reference_id VARCHAR(100),
+                        location_id UUID REFERENCES storage_locations(id),
+                        created_by VARCHAR(100) NOT NULL,
+                        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+                        is_correction BOOLEAN DEFAULT FALSE,
+                        correction_reason TEXT,
+                        notes TEXT
+                    );
+                    CREATE INDEX idx_stock_movements_product ON stock_movements(product_id);
+                    CREATE INDEX idx_stock_movements_date ON stock_movements(movement_date DESC);
+                    CREATE INDEX idx_stock_movements_type ON stock_movements(movement_type);
+                    CREATE INDEX idx_stock_movements_serial ON stock_movements(serial_number) WHERE serial_number IS NOT NULL;
+                    CREATE INDEX idx_stock_movements_created_by ON stock_movements(created_by);
+                    CREATE INDEX idx_stock_movements_reference ON stock_movements(reference_type, reference_id);
+
+                    -- İlaç Stok Detayı (Seri No Takibi)
+                    CREATE TABLE IF NOT EXISTS stock_items_serial (
+                        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                        product_id UUID NOT NULL,
+                        serial_number VARCHAR(100) UNIQUE NOT NULL,
+                        lot_number VARCHAR(100),
+                        expiry_date DATE,
+                        gtin VARCHAR(50),
+                        status VARCHAR(50) DEFAULT 'IN_STOCK' CHECK (status IN ('IN_STOCK', 'SOLD', 'WASTED', 'RETURNED')),
+                        tracking_status VARCHAR(50) DEFAULT 'TRACKED' CHECK (tracking_status IN ('TRACKED', 'UNTRACKED')),
+                        location_id UUID REFERENCES storage_locations(id),
+                        acquired_cost DECIMAL(18,4),
+                        acquired_date DATE,
+                        sold_date TIMESTAMP WITH TIME ZONE,
+                        sold_reference VARCHAR(100),
+                        sold_by VARCHAR(100),
+                        created_by VARCHAR(100),
+                        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+                    );
+                    CREATE INDEX idx_stock_items_product ON stock_items_serial(product_id);
+                    CREATE INDEX idx_stock_items_status ON stock_items_serial(status);
+                    CREATE INDEX idx_stock_items_serial ON stock_items_serial(serial_number);
+                    CREATE INDEX idx_stock_items_expiry ON stock_items_serial(expiry_date) WHERE expiry_date IS NOT NULL;
+                    CREATE INDEX idx_stock_items_location ON stock_items_serial(location_id) WHERE location_id IS NOT NULL;
+
+                    -- Batch Stok (OTC Parti Takibi)
+                    CREATE TABLE IF NOT EXISTS stock_batches (
+                        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                        product_id UUID NOT NULL,
+                        batch_number VARCHAR(100),
+                        expiry_date DATE NOT NULL,
+                        quantity INT NOT NULL DEFAULT 0,
+                        initial_quantity INT NOT NULL,
+                        unit_cost DECIMAL(18,4) NOT NULL,
+                        total_cost DECIMAL(18,2),
+                        location_id UUID REFERENCES storage_locations(id),
+                        is_active BOOLEAN DEFAULT TRUE,
+                        created_by VARCHAR(100) NOT NULL,
+                        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                        notes TEXT
+                    );
+                    CREATE INDEX idx_stock_batches_product ON stock_batches(product_id);
+                    CREATE INDEX idx_stock_batches_expiry ON stock_batches(expiry_date);
+                    CREATE INDEX idx_stock_batches_active ON stock_batches(is_active) WHERE is_active = TRUE;
+
+                    -- Stok Özeti (Hızlı Sorgu İçin Cache)
+                    CREATE TABLE IF NOT EXISTS stock_summary (
+                        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                        product_id UUID UNIQUE NOT NULL,
+                        total_tracked INT DEFAULT 0,
+                        total_untracked INT DEFAULT 0,
+                        total_quantity INT DEFAULT 0,
+                        total_value DECIMAL(18,2) DEFAULT 0,
+                        average_cost DECIMAL(18,4),
+                        last_movement_date TIMESTAMP WITH TIME ZONE,
+                        last_counted_date TIMESTAMP WITH TIME ZONE,
+                        has_expiring_soon BOOLEAN DEFAULT FALSE,
+                        has_expired BOOLEAN DEFAULT FALSE,
+                        has_low_stock BOOLEAN DEFAULT FALSE,
+                        needs_attention BOOLEAN DEFAULT FALSE,
+                        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+                    );
+                    CREATE INDEX idx_stock_summary_product ON stock_summary(product_id);
+                    CREATE INDEX idx_stock_summary_expiring ON stock_summary(has_expiring_soon) WHERE has_expiring_soon = TRUE;
+                    CREATE INDEX idx_stock_summary_low_stock ON stock_summary(has_low_stock) WHERE has_low_stock = TRUE;
+                    CREATE INDEX idx_stock_summary_attention ON stock_summary(needs_attention) WHERE needs_attention = TRUE;
+
+                    -- Otomatik Numara Üretme Fonksiyonu (Hareket Numarası İçin)
+                    CREATE OR REPLACE FUNCTION generate_stock_movement_number()
+                    RETURNS TEXT AS $func$
+                    DECLARE
+                        next_number INT;
+                        year_str TEXT;
+                        number_str TEXT;
+                    BEGIN
+                        year_str := TO_CHAR(NOW(), 'YYYY');
+                        SELECT COALESCE(MAX(
+                            CAST(SUBSTRING(movement_number FROM 'STK-' || year_str || '-(\d+)') AS INT)
+                        ), 0) + 1 INTO next_number
+                        FROM stock_movements
+                        WHERE movement_number LIKE 'STK-' || year_str || '-%';
+                        number_str := LPAD(next_number::TEXT, 5, '0');
+                        RETURN 'STK-' || year_str || '-' || number_str;
+                    END;
+                    $func$ LANGUAGE plpgsql;
+
+                    -- Batch Numara Üretme Fonksiyonu
+                    CREATE OR REPLACE FUNCTION generate_batch_number()
+                    RETURNS TEXT AS $func$
+                    DECLARE
+                        next_number INT;
+                        year_str TEXT;
+                        number_str TEXT;
+                    BEGIN
+                        year_str := TO_CHAR(NOW(), 'YYYY');
+                        SELECT COALESCE(MAX(
+                            CAST(SUBSTRING(batch_number FROM 'BATCH-' || year_str || '-(\d+)') AS INT)
+                        ), 0) + 1 INTO next_number
+                        FROM stock_batches
+                        WHERE batch_number LIKE 'BATCH-' || year_str || '-%';
+                        number_str := LPAD(next_number::TEXT, 3, '0');
+                        RETURN 'BATCH-' || year_str || '-' || number_str;
+                    END;
+                    $func$ LANGUAGE plpgsql;
+
+                    -- ========================================
+                    -- SALES MODULE TABLES
+                    -- ========================================
+                    
+                    -- Kesinleşmiş Satışlar
+                    CREATE TABLE IF NOT EXISTS sales (
+                        sale_id VARCHAR(50) PRIMARY KEY,
+                        sale_number VARCHAR(50) UNIQUE NOT NULL,
+                        sale_date TIMESTAMP NOT NULL DEFAULT NOW(),
+                        
+                        subtotal_amount DECIMAL(10,2) NOT NULL,
+                        discount_amount DECIMAL(10,2) DEFAULT 0,
+                        total_amount DECIMAL(10,2) NOT NULL,
+                        
+                        payment_method VARCHAR(20) NOT NULL,
+                        payment_status VARCHAR(20) DEFAULT 'COMPLETED',
+                        sale_type VARCHAR(20) NOT NULL DEFAULT 'NORMAL',
+                        
+                        customer_id VARCHAR(50),
+                        customer_name VARCHAR(255),
+                        customer_tc VARCHAR(11),
+                        customer_phone VARCHAR(20),
+                        
+                        notes TEXT,
+                        
+                        created_by VARCHAR(100) NOT NULL,
+                        created_at TIMESTAMP DEFAULT NOW(),
+                        updated_at TIMESTAMP DEFAULT NOW(),
+                        
+                        fiscal_receipt_number VARCHAR(100),
+                        fiscal_sent_at TIMESTAMP,
+                        fiscal_status VARCHAR(20) DEFAULT 'PENDING',
+                        fiscal_error_message TEXT,
+                        
+                        is_deleted BOOLEAN DEFAULT FALSE,
+                        deleted_at TIMESTAMP,
+                        deleted_by VARCHAR(100)
+                    );
+                    CREATE INDEX idx_sales_date ON sales(sale_date DESC);
+                    CREATE INDEX idx_sales_created_by ON sales(created_by);
+                    CREATE INDEX idx_sales_payment_method ON sales(payment_method);
+                    CREATE INDEX idx_sales_fiscal_status ON sales(fiscal_status);
+                    
+                    -- Satış Detayları
+                    CREATE TABLE IF NOT EXISTS sale_items (
+                        id SERIAL PRIMARY KEY,
+                        sale_id VARCHAR(50) NOT NULL REFERENCES sales(sale_id) ON DELETE CASCADE,
+                        
+                        product_id VARCHAR(100) NOT NULL,
+                        product_name VARCHAR(500) NOT NULL,
+                        product_category VARCHAR(20),
+                        
+                        quantity INT NOT NULL CHECK (quantity > 0),
+                        unit_price DECIMAL(10,2) NOT NULL,
+                        unit_cost DECIMAL(10,2),
+                        discount_rate DECIMAL(5,2) DEFAULT 0,
+                        total_price DECIMAL(10,2) NOT NULL,
+                        
+                        serial_number VARCHAR(100),
+                        expiry_date DATE,
+                        lot_number VARCHAR(50),
+                        gtin VARCHAR(14),
+                        
+                        stock_movement_id VARCHAR(50),
+                        stock_deducted BOOLEAN DEFAULT FALSE,
+                        
+                        created_at TIMESTAMP DEFAULT NOW()
+                    );
+                    CREATE INDEX idx_sale_items_sale_id ON sale_items(sale_id);
+                    CREATE INDEX idx_sale_items_product_id ON sale_items(product_id);
+                    CREATE INDEX idx_sale_items_gtin ON sale_items(gtin) WHERE gtin IS NOT NULL;
+                    
+                    -- İade İşlemleri (İleride kullanılacak)
+                    CREATE TABLE IF NOT EXISTS sale_returns (
+                        return_id VARCHAR(50) PRIMARY KEY,
+                        return_number VARCHAR(50) UNIQUE NOT NULL,
+                        original_sale_id VARCHAR(50) NOT NULL REFERENCES sales(sale_id),
+                        return_date TIMESTAMP DEFAULT NOW(),
+                        
+                        return_amount DECIMAL(10,2) NOT NULL,
+                        refund_method VARCHAR(20) NOT NULL,
+                        reason TEXT NOT NULL,
+                        return_type VARCHAR(20) DEFAULT 'FULL',
+                        
+                        created_by VARCHAR(100) NOT NULL,
+                        created_at TIMESTAMP DEFAULT NOW(),
+                        
+                        stock_returned BOOLEAN DEFAULT FALSE
+                    );
+                    CREATE INDEX idx_returns_sale_id ON sale_returns(original_sale_id);
+                    CREATE INDEX idx_returns_date ON sale_returns(return_date DESC);
+                    
+                    -- İade Detayları
+                    CREATE TABLE IF NOT EXISTS sale_return_items (
+                        id SERIAL PRIMARY KEY,
+                        return_id VARCHAR(50) NOT NULL REFERENCES sale_returns(return_id) ON DELETE CASCADE,
+                        original_sale_item_id INT NOT NULL REFERENCES sale_items(id),
+                        
+                        quantity_returned INT NOT NULL,
+                        unit_price DECIMAL(10,2) NOT NULL,
+                        total_amount DECIMAL(10,2) NOT NULL,
+                        
+                        stock_movement_id VARCHAR(50),
+                        created_at TIMESTAMP DEFAULT NOW()
+                    );
+                    
+                    -- Satış Numarası Üretme Fonksiyonu
+                    CREATE OR REPLACE FUNCTION generate_sale_number()
+                    RETURNS VARCHAR(50) AS $func$
+                    DECLARE
+                        today VARCHAR(8);
+                        count INT;
+                        new_number VARCHAR(50);
+                    BEGIN
+                        today := TO_CHAR(NOW(), 'YYYYMMDD');
+                        SELECT COUNT(*) INTO count
+                        FROM sales
+                        WHERE sale_number LIKE 'SL-' || today || '-%';
+                        new_number := 'SL-' || today || '-' || LPAD((count + 1)::TEXT, 3, '0');
+                        RETURN new_number;
+                    END;
+                    $func$ LANGUAGE plpgsql;
+                    
+                    -- İade Numarası Üretme Fonksiyonu
+                    CREATE OR REPLACE FUNCTION generate_return_number()
+                    RETURNS VARCHAR(50) AS $func$
+                    DECLARE
+                        today VARCHAR(8);
+                        count INT;
+                        new_number VARCHAR(50);
+                    BEGIN
+                        today := TO_CHAR(NOW(), 'YYYYMMDD');
+                        SELECT COUNT(*) INTO count
+                        FROM sale_returns
+                        WHERE return_number LIKE 'RET-' || today || '-%';
+                        new_number := 'RET-' || today || '-' || LPAD((count + 1)::TEXT, 3, '0');
+                        RETURN new_number;
+                    END;
+                    $func$ LANGUAGE plpgsql;
                 ";
 
                 using (var cmd = new NpgsqlCommand(createTablesSql, conn))

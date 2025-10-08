@@ -8,6 +8,14 @@ using Opas.Shared.MultiTenancy;
 
 namespace Opas.Api.Endpoints;
 
+// DTO for stock_summary JOIN (lightweight)
+public class ProductStockDto
+{
+    public Guid product_id { get; set; }
+    public int total_quantity { get; set; }
+    public decimal? average_cost { get; set; }
+}
+
 /// <summary>
 /// Tenant ürün yönetimi API endpoints
 /// </summary>
@@ -74,24 +82,48 @@ public static class TenantProductEndpoints
                     var totalCount = await query.CountAsync();
 
                     // Sayfalama ve sıralama
-                    var products = await query
+                    var productsList = await query
                         .OrderBy(p => p.DrugName)
                         .Skip((page - 1) * pageSize)
                         .Take(pageSize)
-                        .Select(p => new
-                        {
-                            p.Id,
-                            p.Gtin,
-                            p.DrugName,
-                            p.ManufacturerName,
-                            p.ManufacturerGln,
-                            p.Price,
-                            p.IsActive,
-                            p.LastItsSyncAt,
-                            p.CreatedAtUtc,
-                            p.UpdatedAtUtc
-                        })
                         .ToListAsync();
+
+                    // STOK BİLGİSİNİ EKLE (Ayrı sorgu ile)
+                    var productIds = productsList.Select(p => p.Id).ToList();
+                    var stockData = await tenantDb.Database
+                        .SqlQuery<ProductStockDto>($@"
+                            SELECT product_id, total_quantity, average_cost 
+                            FROM stock_summary 
+                            WHERE product_id = ANY({productIds})")
+                        .ToListAsync();
+
+                    var stockDict = stockData.ToDictionary(s => s.product_id);
+
+                    var products = productsList.Select(p =>
+                    {
+                        var productIdStr = p.Id;
+                        var hasStock = stockDict.ContainsKey(productIdStr);
+                        
+                        return new
+                        {
+                            product_id = productIdStr,
+                            gtin = p.Gtin,
+                            drug_name = p.DrugName,
+                            manufacturer_name = p.ManufacturerName,
+                            manufacturer_gln = p.ManufacturerGln,
+                            price = p.Price,
+                            is_active = p.IsActive,
+                            last_its_sync_at = p.LastItsSyncAt,
+                            category = p.Category,
+                            has_datamatrix = p.HasDatamatrix,
+                            requires_expiry_tracking = p.RequiresExpiryTracking,
+                            is_controlled = p.IsControlled,
+                            created_at = p.CreatedAtUtc,
+                            updated_at = p.UpdatedAtUtc,
+                            stock_quantity = hasStock ? stockDict[productIdStr].total_quantity : 0,
+                            unit_cost = hasStock ? stockDict[productIdStr].average_cost : (decimal?)null
+                        };
+                    }).ToList();
 
                     return Results.Ok(new
                     {

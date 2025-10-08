@@ -186,13 +186,18 @@ public class TenantProductSyncService
                 if (tenantProduct == null)
                 {
                     // Yeni ürün ekle
+                    // NOT: ITS'den gelen tüm ürünler ilaçtır (has_datamatrix: true)
                     tenantProduct = new TenantProduct
                     {
                         Gtin = centralProduct.Gtin,
                         DrugName = centralProduct.DrugName,
                         ManufacturerGln = centralProduct.ManufacturerGln,
                         ManufacturerName = centralProduct.ManufacturerName,
-                        IsActive = centralProduct.Active
+                        IsActive = centralProduct.Active,
+                        Category = "DRUG",
+                        HasDatamatrix = true,
+                        RequiresExpiryTracking = true,
+                        IsControlled = false
                     };
 
                     tenantDb.Products.Add(tenantProduct);
@@ -205,6 +210,11 @@ public class TenantProductSyncService
                     tenantProduct.ManufacturerGln = centralProduct.ManufacturerGln;
                     tenantProduct.ManufacturerName = centralProduct.ManufacturerName;
                     tenantProduct.IsActive = centralProduct.Active;
+                    
+                    // ✅ ITS'den gelen ürünler her zaman ilaçtır
+                    tenantProduct.Category = "DRUG";
+                    tenantProduct.HasDatamatrix = true;
+                    tenantProduct.RequiresExpiryTracking = true;
                     
                     // NOT: Price ve PriceHistory kasıtlı olarak güncellenmedi - tenant'ın customization'ını koru
                     

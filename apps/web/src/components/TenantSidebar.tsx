@@ -121,6 +121,13 @@ const navigationItems = [
     badge: null 
   },
   { 
+    id: 'stock', 
+    text: 'Stok', 
+    icon: <InventoryIcon />, 
+    path: '/stok/giris',
+    badge: 'YENİ' 
+  },
+  { 
     id: 'stakeholders', 
     text: 'Paydaşlar', 
     icon: <StoreIcon />, 
@@ -130,7 +137,7 @@ const navigationItems = [
   { 
     id: 'products', 
     text: 'Ürünler', 
-    icon: <InventoryIcon />, 
+    icon: <PharmacyIcon />, 
     path: '/productslist',
     badge: null 
   },
@@ -217,6 +224,43 @@ export default function TenantSidebar({ open, onToggle, currentPath }: TenantSid
       <Box sx={{ flex: 1, py: 2 }}>
         <List sx={{ px: 1 }}>
           {navigationItems.map((item) => {
+            // Special handling for Stock menu - direct navigation
+            if (item.id === 'stock') {
+              const isSelected = currentPath.startsWith('/stok')
+              return (
+                <ListItem key={item.id} disablePadding>
+                  <Tooltip title={item.text} placement="right">
+                    <NavigationItem
+                      selected={isSelected}
+                      onClick={() => handleNavigation('/stok/liste')}
+                      sx={{ position: 'relative' }}
+                    >
+                      <ListItemIcon>{item.icon}</ListItemIcon>
+                      <ListItemText 
+                        primary={item.text}
+                        primaryTypographyProps={{ fontSize: '0.9rem' }}
+                      />
+                      {item.badge && (
+                        <Chip
+                          label={item.badge}
+                          size="small"
+                          sx={{
+                            ml: 1,
+                            height: 20,
+                            fontSize: '0.7rem',
+                            background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                            color: 'white',
+                            fontWeight: 600,
+                          }}
+                        />
+                      )}
+                    </NavigationItem>
+                  </Tooltip>
+                </ListItem>
+              )
+            }
+
+            // Regular menu items
             const isSelected = currentPath === item.path
             return (
               <ListItem key={item.id} disablePadding>

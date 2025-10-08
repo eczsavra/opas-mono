@@ -44,18 +44,38 @@ public class TenantProduct : BaseEntity
     /// </summary>
     public bool IsActive { get; set; } = true;
 
-/// <summary>
-/// Son ITS sync zamanı
-/// </summary>
-public DateTime? LastItsSyncAt { get; set; }
+    /// <summary>
+    /// Son ITS sync zamanı
+    /// </summary>
+    public DateTime? LastItsSyncAt { get; set; }
 
-/// <summary>
-/// Kaydı oluşturan kullanıcı
-/// </summary>
-public string? CreatedBy { get; set; }
+    /// <summary>
+    /// Ürün kategorisi (DRUG: İlaç, NON_DRUG: OTC/Kozmetik/Medikal)
+    /// </summary>
+    public string Category { get; set; } = "DRUG";
 
-/// <summary>
-/// Kaydı güncelleyen kullanıcı
-/// </summary>
-public string? UpdatedBy { get; set; }
+    /// <summary>
+    /// Datamatrix (karekod) var mı? İlaçlar için TRUE
+    /// </summary>
+    public bool HasDatamatrix { get; set; } = false;
+
+    /// <summary>
+    /// SKT takibi gerekli mi?
+    /// </summary>
+    public bool RequiresExpiryTracking { get; set; } = true;
+
+    /// <summary>
+    /// Kontrollü ilaç mı? (Psikotrop, narkotik vb.)
+    /// </summary>
+    public bool IsControlled { get; set; } = false;
+
+    /// <summary>
+    /// Kaydı oluşturan kullanıcı
+    /// </summary>
+    public string? CreatedBy { get; set; }
+
+    /// <summary>
+    /// Kaydı güncelleyen kullanıcı
+    /// </summary>
+    public string? UpdatedBy { get; set; }
 }

@@ -7,6 +7,13 @@ interface Product {
   drugName: string
   manufacturerName: string
   price: number
+  quantity?: number
+  category?: string
+  unitCost?: number
+  stockQuantity?: number
+  serialNumber?: string
+  expiryDate?: string
+  lotNumber?: string
 }
 
 interface SearchResult {
@@ -57,19 +64,15 @@ export function useProductSearch() {
             await cacheProducts(products, tenantId)
             
             return {
-              products: products.map((p: {
-                id: string
-                gtin: string
-                drugName: string
-                manufacturerName?: string
-                manufacturer_name?: string
-                price: number
-              }) => ({
-                id: p.id,
-                gtin: p.gtin,
-                drugName: p.drugName,
-                manufacturerName: p.manufacturerName || p.manufacturer_name || '',
-                price: p.price
+              products: products.map((p: Record<string, unknown>) => ({
+                id: (p.product_id as string) || (p.id as string),
+                gtin: p.gtin as string,
+                drugName: (p.drug_name as string) || (p.drugName as string),
+                manufacturerName: (p.manufacturer_name as string) || (p.manufacturerName as string) || '',
+                price: (p.price as number) || 0,
+                category: (p.category as string) || 'DRUG',
+                unitCost: (p.unit_cost as number) || (p.unitCost as number),
+                stockQuantity: (p.stock_quantity as number) ?? (p.stockQuantity as number) ?? 0
               })),
               source: 'backend'
             }
@@ -119,24 +122,16 @@ export function useProductSearch() {
 }
 
 // Helper: Cache products to IndexedDB
-async function cacheProducts(products: Array<{
-  id: string
-  gtin: string
-  drugName: string
-  manufacturerGln?: string
-  manufacturerName?: string
-  price?: number
-  isActive?: boolean
-}>, tenantId: string) {
+async function cacheProducts(products: Array<Record<string, unknown>>, tenantId: string) {
   try {
-    const cachedProducts: CachedProduct[] = products.map(p => ({
-      id: p.id,
-      gtin: p.gtin,
-      drugName: p.drugName,
-      manufacturerGln: p.manufacturerGln || '',
-      manufacturerName: p.manufacturerName || '',
-      price: p.price || 0,
-      isActive: p.isActive !== false,
+    const cachedProducts: CachedProduct[] = products.map((p: Record<string, unknown>) => ({
+      id: (p.product_id as string) || (p.id as string),
+      gtin: p.gtin as string,
+      drugName: (p.drug_name as string) || (p.drugName as string),
+      manufacturerGln: (p.manufacturer_gln as string) || (p.manufacturerGln as string) || '',
+      manufacturerName: (p.manufacturer_name as string) || (p.manufacturerName as string) || '',
+      price: (p.price as number) || 0,
+      isActive: (p.is_active as boolean) !== false && (p.isActive as boolean) !== false,
       lastSyncAt: new Date(),
       tenantId
     }))

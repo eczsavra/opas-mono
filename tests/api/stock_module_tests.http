@@ -1,0 +1,228 @@
+### ========================================
+### STOK MODÜLÜ TEST ENDPOINT'LERİ
+### ========================================
+
+@baseUrl = http://127.0.0.1:5080
+@tenantId = TNT_8680001530144
+@username = mcecab
+@productId = 0199bbb6-48cc-7dbe-97b8-f33178fcb2d3
+
+### ========================================
+### 1. STOK HAREKETLERİ (STOCK MOVEMENTS)
+### ========================================
+
+### 1.1. Yeni Stok Hareketi Oluştur (Alış)
+POST {{baseUrl}}/api/tenant/stock/movements?tenantId={{tenantId}}&username={{username}}
+Content-Type: application/json
+
+{
+  "movementType": "PURCHASE_DEPOT",
+  "productId": "{{productId}}",
+  "quantityChange": 100,
+  "unitCost": 30.00,
+  "serialNumber": "TEST12345ABCD",
+  "lotNumber": "2025A",
+  "expiryDate": "2027-12-31",
+  "gtin": "8680001234567",
+  "notes": "İlk test alışı"
+}
+
+### 1.2. Stok Hareketlerini Listele
+GET {{baseUrl}}/api/tenant/stock/movements?tenantId={{tenantId}}&page=1&pageSize=20
+
+### 1.3. Belirli Bir Hareketi Getir
+GET {{baseUrl}}/api/tenant/stock/movements/movement-id-here?tenantId={{tenantId}}
+
+### 1.4. Ürüne Göre Hareketleri Listele
+GET {{baseUrl}}/api/tenant/stock/movements/product/{{productId}}?tenantId={{tenantId}}
+
+### 1.5. Filtreli Liste (Tarih + Tip)
+GET {{baseUrl}}/api/tenant/stock/movements?tenantId={{tenantId}}&movementType=SALE_RETAIL&startDate=2025-01-01&endDate=2025-12-31
+
+### ========================================
+### 2. STOK ÖZETİ (STOCK SUMMARY)
+### ========================================
+
+### 2.1. Tüm Ürünlerin Stok Özetini Getir
+GET {{baseUrl}}/api/tenant/stock/summary?tenantId={{tenantId}}&page=1&pageSize=50
+
+### 2.2. Belirli Bir Ürünün Stok Özetini Getir
+GET {{baseUrl}}/api/tenant/stock/summary/{{productId}}?tenantId={{tenantId}}
+
+### 2.3. Stok Özetini Yeniden Hesapla
+POST {{baseUrl}}/api/tenant/stock/summary/recalculate/{{productId}}?tenantId={{tenantId}}
+
+### 2.4. Uyarı Gerektiren Ürünleri Getir
+GET {{baseUrl}}/api/tenant/stock/summary/alerts?tenantId={{tenantId}}
+
+### 2.5. Düşük Stok Ürünleri
+GET {{baseUrl}}/api/tenant/stock/summary?tenantId={{tenantId}}&hasLowStock=true
+
+### 2.6. Yakında Dolacak Ürünler
+GET {{baseUrl}}/api/tenant/stock/summary?tenantId={{tenantId}}&hasExpiringSoon=true
+
+### ========================================
+### 3. BATCH YÖNETİMİ (STOCK BATCHES)
+### ========================================
+
+### 3.1. Yeni Batch Oluştur (OTC için)
+POST {{baseUrl}}/api/tenant/stock/batches?tenantId={{tenantId}}&username={{username}}
+Content-Type: application/json
+
+{
+  "productId": "{{productId}}",
+  "batchNumber": "Ocak Alışı 2025",
+  "expiryDate": "2026-08-31",
+  "quantity": 50,
+  "unitCost": 10.50,
+  "notes": "Güneş kremi - yaz sezonu stoku"
+}
+
+### 3.2. Otomatik Batch Numarası ile Oluştur
+POST {{baseUrl}}/api/tenant/stock/batches?tenantId={{tenantId}}&username={{username}}
+Content-Type: application/json
+
+{
+  "productId": "{{productId}}",
+  "expiryDate": "2026-12-31",
+  "quantity": 100,
+  "unitCost": 15.00
+}
+
+### 3.3. Ürüne Göre Batch'leri Listele
+GET {{baseUrl}}/api/tenant/stock/batches/product/{{productId}}?tenantId={{tenantId}}
+
+### 3.4. Sadece Aktif Batch'leri Listele
+GET {{baseUrl}}/api/tenant/stock/batches/product/{{productId}}?tenantId={{tenantId}}&activeOnly=true
+
+### 3.5. Batch Miktarını Güncelle (Satış Sonrası)
+PUT {{baseUrl}}/api/tenant/stock/batches/batch-id-here/quantity?tenantId={{tenantId}}&username={{username}}&newQuantity=45
+
+### 3.6. Tüm Aktif Batch'leri Listele
+GET {{baseUrl}}/api/tenant/stock/batches/active?tenantId={{tenantId}}&page=1&pageSize=50
+
+### 3.7. Yakında Dolacak Batch'leri Listele (6 ay içinde)
+GET {{baseUrl}}/api/tenant/stock/batches/expiring-soon?tenantId={{tenantId}}&daysAhead=180
+
+### 3.8. Yakında Dolacak Batch'leri Listele (3 ay içinde)
+GET {{baseUrl}}/api/tenant/stock/batches/expiring-soon?tenantId={{tenantId}}&daysAhead=90
+
+### ========================================
+### 4. SENARYOLAR (WORKFLOW TESTLERI)
+### ========================================
+
+### SENARYO 1: İLAÇ ALIŞI (Karekod ile)
+# 1. Alış hareketi oluştur
+POST {{baseUrl}}/api/tenant/stock/movements?tenantId={{tenantId}}&username={{username}}
+Content-Type: application/json
+
+{
+  "movementType": "PURCHASE_DEPOT",
+  "productId": "{{productId}}",
+  "quantityChange": 10,
+  "unitCost": 50.00,
+  "serialNumber": "ABC123XYZ789",
+  "lotNumber": "2025B",
+  "expiryDate": "2027-06-30",
+  "gtin": "8680001111111"
+}
+
+# 2. Stok özetini kontrol et
+GET {{baseUrl}}/api/tenant/stock/summary/{{productId}}?tenantId={{tenantId}}
+
+# 3. Ürün hareketlerini kontrol et
+GET {{baseUrl}}/api/tenant/stock/movements/product/{{productId}}?tenantId={{tenantId}}
+
+### SENARYO 2: OTC ÜRÜN ALIŞI (Batch ile)
+# 1. Batch oluştur
+POST {{baseUrl}}/api/tenant/stock/batches?tenantId={{tenantId}}&username={{username}}
+Content-Type: application/json
+
+{
+  "productId": "{{productId}}",
+  "batchNumber": "Test Batch 2025",
+  "expiryDate": "2026-12-31",
+  "quantity": 100,
+  "unitCost": 20.00
+}
+
+# 2. Batch'leri kontrol et
+GET {{baseUrl}}/api/tenant/stock/batches/product/{{productId}}?tenantId={{tenantId}}
+
+# 3. Stok özetini kontrol et
+GET {{baseUrl}}/api/tenant/stock/summary/{{productId}}?tenantId={{tenantId}}
+
+### SENARYO 3: SATIŞ SONRASI STOK DÜŞÜŞÜ
+# 1. Satış hareketi oluştur
+POST {{baseUrl}}/api/tenant/stock/movements?tenantId={{tenantId}}&username={{username}}
+Content-Type: application/json
+
+{
+  "movementType": "SALE_RETAIL",
+  "productId": "{{productId}}",
+  "quantityChange": -5,
+  "serialNumber": "ABC123XYZ789",
+  "referenceType": "SALE_ORDER",
+  "referenceId": "SO-2025-001"
+}
+
+# 2. Stok özetini kontrol et (azalmış olmalı)
+GET {{baseUrl}}/api/tenant/stock/summary/{{productId}}?tenantId={{tenantId}}
+
+### SENARYO 4: BATCH'TEN SATIŞ (OTC)
+# 1. Aktif batch'leri listele
+GET {{baseUrl}}/api/tenant/stock/batches/product/{{productId}}?tenantId={{tenantId}}&activeOnly=true
+
+# 2. Batch miktarını azalt (satış simülasyonu)
+PUT {{baseUrl}}/api/tenant/stock/batches/batch-id-here/quantity?tenantId={{tenantId}}&username={{username}}&newQuantity=95
+
+# 3. Stok özetini yeniden hesapla
+POST {{baseUrl}}/api/tenant/stock/summary/recalculate/{{productId}}?tenantId={{tenantId}}
+
+### ========================================
+### 5. RAPORLAMA & ANALİZ
+### ========================================
+
+### 5.1. Tüm Uyarıları Getir
+GET {{baseUrl}}/api/tenant/stock/summary/alerts?tenantId={{tenantId}}
+
+### 5.2. Son 7 Günlük Hareketler
+GET {{baseUrl}}/api/tenant/stock/movements?tenantId={{tenantId}}&startDate=2025-01-01&endDate=2025-01-08
+
+### 5.3. Sadece Satış Hareketleri
+GET {{baseUrl}}/api/tenant/stock/movements?tenantId={{tenantId}}&movementType=SALE_RETAIL
+
+### 5.4. Sadece Alış Hareketleri
+GET {{baseUrl}}/api/tenant/stock/movements?tenantId={{tenantId}}&movementType=PURCHASE_DEPOT
+
+### 5.5. Zayi/Fire Hareketleri
+GET {{baseUrl}}/api/tenant/stock/movements?tenantId={{tenantId}}&movementType=WASTE
+
+### ========================================
+### 6. MANUEL DÜZELTMELER
+### ========================================
+
+### 6.1. Stok Düzeltme Hareketi (Fiziksel Sayım Sonrası)
+POST {{baseUrl}}/api/tenant/stock/movements?tenantId={{tenantId}}&username={{username}}
+Content-Type: application/json
+
+{
+  "movementType": "CORRECTION",
+  "productId": "{{productId}}",
+  "quantityChange": -10,
+  "notes": "Fiziksel sayım farkı düzeltmesi: Sistemde 100, rafta 90 vardı"
+}
+
+### 6.2. Stok Özetini Yeniden Hesapla
+POST {{baseUrl}}/api/tenant/stock/summary/recalculate/{{productId}}?tenantId={{tenantId}}
+
+### ========================================
+### NOTLAR
+### ========================================
+
+# 1. {{productId}} yerine gerçek ürün ID'si kullanılmalı
+# 2. {{tenantId}} doğru tenant ID'si olmalı (örnek: TNT_8680001530144)
+# 3. Batch ve Movement ID'leri response'lardan alınarak kullanılmalı
+# 4. Tarihler YYYY-MM-DD formatında olmalı
+# 5. Quantity değişimleri: pozitif = giriş, negatif = çıkış
+
