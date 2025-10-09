@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import '@/utils/consoleFilter' // LocalService console hatalarını filtrele
 import { 
   Box, 
   Container, 
@@ -9,8 +8,6 @@ import {
   Card, 
   CardContent, 
   Paper,
-  useTheme,
-  useMediaQuery,
   LinearProgress,
   Alert,
   Chip,
@@ -32,8 +29,6 @@ import {
   Warning,
   Info
 } from '@mui/icons-material'
-import TenantSidebar from '@/components/TenantSidebar'
-import TenantNavbar from '@/components/TenantNavbar'
 import StatusBar from '@/components/StatusBar'
 import { ToastProvider } from '@/contexts/ToastContext'
 
@@ -236,12 +231,7 @@ const ActivityItem = ({ activity }: { activity: RecentActivity }) => {
 }
 
 export default function TenantDashboard() {
-  const theme = useTheme()
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'))
-  
   // State
-  const [sidebarOpen, setSidebarOpen] = useState(!isMobile)
-  const [navbarOpen, setNavbarOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null)
@@ -337,16 +327,6 @@ export default function TenantDashboard() {
     loadDashboardData()
   }, [])
 
-  // Handle sidebar toggle
-  const handleSidebarToggle = () => {
-    setSidebarOpen(!sidebarOpen)
-  }
-
-  // Handle navbar toggle
-  const handleNavbarToggle = () => {
-    setNavbarOpen(!navbarOpen)
-  }
-
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
@@ -360,38 +340,7 @@ export default function TenantDashboard() {
 
   return (
     <ToastProvider>
-      <Box sx={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f8fafc' }}>
-        {/* Tenant Sidebar */}
-        <TenantSidebar 
-          open={sidebarOpen} 
-          onToggle={handleSidebarToggle}
-          currentPath="/t-dashboard"
-        />
-      
-      {/* Main Content */}
-      <Box 
-        component="main" 
-        sx={{ 
-          flexGrow: 1,
-          minHeight: '100vh',
-          position: 'relative',
-          transition: 'margin 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-          marginLeft: { 
-            xs: 0, // Mobile'da margin yok (overlay)
-            md: sidebarOpen ? '280px' : 0 // Desktop'ta sidebar genişliği kadar margin
-          },
-          paddingBottom: '60px' // Status bar için alan bırak
-        }}
-      >
-        {/* Tenant Navbar */}
-        <TenantNavbar 
-          open={navbarOpen}
-          onToggle={handleNavbarToggle}
-          onSidebarToggle={handleSidebarToggle}
-        />
-
-        {/* Dashboard Content */}
-        <Container maxWidth="xl" sx={{ py: 3, px: 3 }}>
+        <Container maxWidth="xl" sx={{ py: 1.5, px: 2 }}>
           {/* Header */}
           <Box sx={{ mb: 4 }}>
             <Typography variant="h4" sx={{ fontWeight: 700, mb: 1, display: 'flex', alignItems: 'center' }}>
@@ -548,11 +497,9 @@ export default function TenantDashboard() {
             </Box>
           </Box>
         </Container>
-      </Box>
-      
+        
         {/* Status Bar */}
-        <StatusBar sidebarOpen={sidebarOpen} />
-      </Box>
+        <StatusBar sidebarOpen={true} />
     </ToastProvider>
   )
 }

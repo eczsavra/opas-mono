@@ -551,9 +551,9 @@ export default function StokListePage() {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: 1.5 }}>
       {/* Header */}
-      <Box sx={{ mb: 3 }}>
+      <Box sx={{ mb: 2 }}>
         <Box sx={{ display: 'flex', gap: 1, mb: 2, alignItems: 'center' }}>
           <Button
             startIcon={<DashboardIcon />}

@@ -24,6 +24,14 @@ public record DraftProductDto
     public decimal Price { get; init; }
     public int Quantity { get; init; }
     public decimal TotalPrice { get; init; }
+    
+    // ✅ CRITICAL: Additional fields for persistence
+    public string? Category { get; init; }
+    public decimal? UnitCost { get; init; }
+    public int? StockQuantity { get; init; }
+    public string? SerialNumber { get; init; }
+    public string? ExpiryDate { get; init; }
+    public string? LotNumber { get; init; }
 }
 
 /// <summary>

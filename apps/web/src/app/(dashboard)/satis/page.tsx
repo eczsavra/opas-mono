@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import { 
   Box, 
   Container, 
@@ -14,8 +13,6 @@ import {
   Add as AddIcon, 
   Close as CloseIcon 
 } from '@mui/icons-material'
-import TenantSidebar from '@/components/TenantSidebar'
-import TenantNavbar from '@/components/TenantNavbar'
 import ModernSearchBox from '@/components/sales/ModernSearchBox'
 import { useSalesContext } from '@/contexts/SalesContext'
 
@@ -37,9 +34,6 @@ const TAB_COLORS = [
 ]
 
 export default function SatisPage() {
-  const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [navbarOpen, setNavbarOpen] = useState(false)
-  
   // Context'ten state'leri al
   const {
     saleTabs,
@@ -51,14 +45,6 @@ export default function SatisPage() {
     removeTab,
     reorderTabs,
   } = useSalesContext()
-
-  const handleSidebarToggle = () => {
-    setSidebarOpen(!sidebarOpen)
-  }
-
-  const handleNavbarToggle = () => {
-    setNavbarOpen(!navbarOpen)
-  }
 
   const handleProductSelect = () => {
     // TODO: Seçilen ürünü satış sepetine ekle
@@ -117,52 +103,20 @@ export default function SatisPage() {
   }
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f8fafc' }}>
-      {/* Tenant Sidebar */}
-      <TenantSidebar 
-        open={sidebarOpen} 
-        onToggle={handleSidebarToggle}
-        currentPath="/satis"
-      />
-
-      {/* Main Content */}
-      <Box 
-        component="main" 
-        sx={{ 
-          flexGrow: 1,
-          minHeight: '100vh',
-          width: '100%',
-          maxWidth: '100vw',
-          overflowX: 'hidden', // ⚠️ CRITICAL: Prevent horizontal page scroll
-          transition: 'margin 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-          marginLeft: { 
-            xs: 0,
-            md: sidebarOpen ? '280px' : 0
-          }
-        }}
-      >
-        {/* Tenant Navbar */}
-        <TenantNavbar 
-          open={navbarOpen}
-          onToggle={handleNavbarToggle}
-          onSidebarToggle={handleSidebarToggle}
-        />
-
-        {/* Page Content */}
-        <Container 
-          maxWidth="xl" 
-          sx={{ 
-            height: 'calc(100vh - 64px)',
-            width: '100%',
-            maxWidth: '100%',
-            overflowX: 'hidden', // ⚠️ CRITICAL: No horizontal scroll for entire page!
-            overflowY: 'auto',   // ⚠️ Only vertical scroll allowed
-            display: 'flex',
-            flexDirection: 'column',
-            py: 2,
-            px: 3
-          }}
-        >
+    <Container 
+      maxWidth="xl" 
+      sx={{ 
+        height: 'calc(100vh - 64px)',
+        width: '100%',
+        maxWidth: '100%',
+        overflowX: 'hidden',
+        overflowY: 'auto',
+        display: 'flex',
+        flexDirection: 'column',
+        py: 1,
+        px: 2
+      }}
+    >
                  {/* Yeni Satış Butonu ve Tab Sistemi */}
                  <Box 
                    sx={{ 
@@ -390,8 +344,6 @@ export default function SatisPage() {
               </Typography>
             </Paper>
           )}
-        </Container>
-      </Box>
-    </Box>
+    </Container>
   )
 }

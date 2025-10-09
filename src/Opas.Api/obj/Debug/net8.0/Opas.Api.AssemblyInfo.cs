@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Opas.Api")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+6f16160cd7645f4331a94d950a6a572cd6fad852")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+9cdfbb88e341e24a8fe55b4be4c98b642504db97")]
 [assembly: System.Reflection.AssemblyProductAttribute("Opas.Api")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Opas.Api")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
