@@ -151,6 +151,34 @@ const navigationItems = [
   },
 ]
 
+// Navigation item click handler with new tab support
+const handleNavigationClick = (path: string, event: React.MouseEvent) => {
+  // Middle click (wheel click) - open in new tab and prevent scroll
+  if (event.button === 1) {
+    event.preventDefault()
+    event.stopPropagation()
+    window.open(path, '_blank')
+    return
+  }
+  
+  // Normal click - navigate in same tab
+  if (event.button === 0 && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
+    window.location.href = path
+  }
+  // Ctrl+Click, Cmd+Click, or Shift+Click - open in new tab
+  else if (event.ctrlKey || event.metaKey || event.shiftKey) {
+    event.preventDefault()
+    window.open(path, '_blank')
+  }
+}
+
+// Context menu handler for right-click
+const handleContextMenu = (path: string, event: React.MouseEvent) => {
+  event.preventDefault()
+  // Show browser's default context menu with "Open in new tab" option
+  // This will be handled by the browser automatically
+}
+
 interface TenantSidebarProps {
   open: boolean
   onToggle: () => void
@@ -161,9 +189,7 @@ export default function TenantSidebar({ open, onToggle, currentPath }: TenantSid
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
 
-  const handleNavigation = (path: string) => {
-    window.location.href = path
-  }
+  // handleNavigation removed - using handleNavigationClick instead
 
   const sidebarContent = (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -240,7 +266,15 @@ export default function TenantSidebar({ open, onToggle, currentPath }: TenantSid
                   <Tooltip title={item.text} placement="right">
                     <NavigationItem
                       selected={isSelected}
-                      onClick={() => handleNavigation('/stok/liste')}
+                      onClick={(e) => handleNavigationClick('/stok/liste', e)}
+                      onMouseDown={(e) => {
+                        if (e.button === 1) {
+                          e.preventDefault()
+                          e.stopPropagation()
+                        }
+                      }}
+                      onMouseUp={(e) => handleNavigationClick('/stok/liste', e)}
+                      onContextMenu={(e) => handleContextMenu('/stok/liste', e)}
                       sx={{ position: 'relative' }}
                     >
                       <ListItemIcon>{item.icon}</ListItemIcon>
@@ -275,7 +309,15 @@ export default function TenantSidebar({ open, onToggle, currentPath }: TenantSid
                 <Tooltip title={item.text} placement="right">
                   <NavigationItem
                     selected={isSelected}
-                    onClick={() => handleNavigation(item.path)}
+                    onClick={(e) => handleNavigationClick(item.path, e)}
+                    onMouseDown={(e) => {
+                      if (e.button === 1) {
+                        e.preventDefault()
+                        e.stopPropagation()
+                      }
+                    }}
+                    onMouseUp={(e) => handleNavigationClick(item.path, e)}
+                    onContextMenu={(e) => handleContextMenu(item.path, e)}
                     sx={{ position: 'relative' }}
                   >
                     <ListItemIcon>

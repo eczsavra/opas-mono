@@ -17,13 +17,17 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
-  Button
+  Button,
+  Snackbar,
+  Alert
 } from '@mui/material'
 import { 
   Search as SearchIcon, 
   ContentPaste as PasteIcon,
   Clear as ClearIcon,
-  Delete as DeleteIcon
+  Delete as DeleteIcon,
+  CheckCircle as SuccessIcon,
+  Receipt as ReceiptIcon
 } from '@mui/icons-material'
 import { styled } from '@mui/material/styles'
 import { useSalesContext } from '@/contexts/SalesContext'
@@ -136,6 +140,17 @@ export default function ModernSearchBox({ tabId, onProductSelect }: ModernSearch
   const [searchSource, setSearchSource] = useState<'backend' | 'cache'>('backend')
   const listboxRef = React.useRef<HTMLUListElement>(null)
   const inputRef = React.useRef<HTMLInputElement>(null) // ⚠️ Ref for auto-focus
+  
+  // Success Notification State
+  const [successNotification, setSuccessNotification] = useState<{
+    open: boolean
+    saleNumber: string
+    totalAmount: number
+  }>({
+    open: false,
+    saleNumber: '',
+    totalAmount: 0
+  })
   
   // ✅ Use IndexedDB-powered search hook
   const { searchProducts: searchWithCache } = useProductSearch()
@@ -906,21 +921,26 @@ export default function ModernSearchBox({ tabId, onProductSelect }: ModernSearch
                       productCategory: p.category,
                       quantity: p.quantity || 1,
                       unitPrice: p.price,
-                      unitCost: p.unitCost,
+                      unitCost: p.unitCost || 0,
                       discountRate: 0,
                       totalPrice: (p.price || 0) * (p.quantity || 1),
-                      serialNumber: p.serialNumber,
-                      expiryDate: p.expiryDate,
-                      lotNumber: p.lotNumber,
-                      gtin: p.gtin
+                      serialNumber: p.serialNumber || null,
+                      expiryDate: p.expiryDate || null,
+                      lotNumber: p.lotNumber || null,
+                      gtin: p.gtin || null
                     })),
                     payment: {
-                      method: currentTab.paymentMethod,
+                      method: currentTab.paymentMethod || 'CASH',
                       amount: salesSummary.total,
                       notes: null
                     },
                     saleType: currentTab.saleType || 'NORMAL',
-                    customer: null,
+                    customer: currentTab.customerId ? {
+                      customerId: currentTab.customerId,
+                      name: currentTab.customerName,
+                      tcNo: null,
+                      phone: null
+                    } : null,
                     notes: null
                   };
 
@@ -942,8 +962,12 @@ export default function ModernSearchBox({ tabId, onProductSelect }: ModernSearch
 
                   const result = await response.json();
                   
-                  // Başarılı!
-                  alert(`✅ Satış Tamamlandı!\n\nFiş No: ${result.saleNumber}\nTutar: ${result.totalAmount.toFixed(2)} ₺`);
+                  // Başarılı! Modern notification göster
+                  setSuccessNotification({
+                    open: true,
+                    saleNumber: result.saleNumber,
+                    totalAmount: result.totalAmount
+                  });
                   
                   // Tab'ı temizle (products boş array olacak, backend zaten draft_sales'i siliyor)
                   updateTab(tabId, { 
@@ -988,6 +1012,84 @@ export default function ModernSearchBox({ tabId, onProductSelect }: ModernSearch
           </Button>
         </Box>
       </Card>
+
+      {/* Success Notification - Kırmızı İşaretli Alan (Satış Özeti Üstü) */}
+      <Snackbar
+        open={successNotification.open}
+        autoHideDuration={6000}
+        onClose={() => setSuccessNotification({ open: false, saleNumber: '', totalAmount: 0 })}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        sx={{ 
+          position: 'absolute',
+          top: 120, // Navbar altı + tab altı
+          right: 20, // Sağdan 20px
+          zIndex: 1400 // Snackbar'ın üstünde görünsün
+        }}
+      >
+        <Alert
+          onClose={() => setSuccessNotification({ open: false, saleNumber: '', totalAmount: 0 })}
+          severity="success"
+          icon={<SuccessIcon sx={{ fontSize: 28 }} />}
+          sx={{
+            minWidth: 320, // Kırmızı alana uygun boyut
+            maxWidth: 380, // Maksimum genişlik
+            borderRadius: 3,
+            boxShadow: '0 12px 48px rgba(46, 125, 50, 0.3)',
+            background: 'linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)',
+            border: '2px solid #10b981',
+            '& .MuiAlert-icon': {
+              fontSize: 28, // Biraz küçült
+              color: '#059669',
+            },
+            '& .MuiAlert-message': {
+              width: '100%',
+            }
+          }}
+        >
+          <Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
+              <ReceiptIcon sx={{ fontSize: 24, color: '#059669' }} />
+              <Typography variant="h6" sx={{ fontWeight: 700, color: '#065f46' }}>
+                Satış Başarıyla Tamamlandı!
+              </Typography>
+            </Box>
+            
+            <Box
+              sx={{
+                p: 2,
+                borderRadius: 2,
+                background: 'white',
+                border: '1px solid #6ee7b7',
+                mb: 1,
+              }}
+            >
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                <Typography variant="body2" sx={{ color: '#059669', fontWeight: 600 }}>
+                  Fiş Numarası:
+                </Typography>
+                <Typography variant="h6" sx={{ fontWeight: 700, color: '#065f46', fontFamily: 'monospace' }}>
+                  {successNotification.saleNumber}
+                </Typography>
+              </Box>
+              
+              <Divider sx={{ my: 1, borderColor: '#6ee7b7' }} />
+              
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography variant="body2" sx={{ color: '#059669', fontWeight: 600 }}>
+                  Toplam Tutar:
+                </Typography>
+                <Typography variant="h5" sx={{ fontWeight: 700, color: '#065f46' }}>
+                  {successNotification.totalAmount.toFixed(2)} ₺
+                </Typography>
+              </Box>
+            </Box>
+
+            <Typography variant="caption" sx={{ color: '#047857', display: 'block', textAlign: 'center' }}>
+              🎉 Fiş kaydedildi ve stok güncellendi
+            </Typography>
+          </Box>
+        </Alert>
+      </Snackbar>
     </Box>
   )
 }

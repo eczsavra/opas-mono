@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Opas.Domain.Tests")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+76cba139768fde04778a93d00fe6a8e944195192")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4c8fc9278e1033b9f7705a329d530756222ec3ce")]
 [assembly: System.Reflection.AssemblyProductAttribute("Opas.Domain.Tests")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Opas.Domain.Tests")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

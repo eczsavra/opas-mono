@@ -5,6 +5,8 @@ using Opas.Domain.Entities;
 using Opas.Shared.Logging;
 using Opas.Infrastructure.Logging;
 using Opas.Shared.MultiTenancy;
+using Opas.Shared.Product;
+using Npgsql;
 
 namespace Opas.Api.Endpoints;
 
@@ -325,7 +327,125 @@ public static class TenantProductEndpoints
         .Produces<object>(200)
         .Produces<object>(404)
         .Produces<ProblemDetails>(500);
+
+        // POST /api/tenant/products/seed-mock-data - Seed 100 mock products
+        group.MapPost("/seed-mock-data", async (
+            [AsParameters] TenantRequest tenantReq,
+            IOpasLogger opasLogger,
+            HttpContext httpContext,
+            CancellationToken ct) =>
+        {
+            using (OpasLogContext.EnrichFromHttpContext(httpContext))
+            {
+                try
+                {
+                    var connStr = BuildTenantConnectionString(tenantReq.TenantId);
+                    await using var conn = new NpgsqlConnection(connStr);
+                    await conn.OpenAsync(ct);
+
+                    // Generate 100 mock products
+                    var mockProducts = ProductMockData.Generate100Products();
+                    
+                    Console.WriteLine($"🎯 Generated {mockProducts.Count} mock products");
+                    
+                    var createdCount = 0;
+                    var errors = new List<string>();
+                    var skippedCount = 0;
+
+                    foreach (var product in mockProducts)
+                    {
+                        try
+                        {
+                            var insertQuery = @"
+                                INSERT INTO products (
+                                    id, gtin, drug_name, manufacturer_name, manufacturer_gln,
+                                    price, category, has_datamatrix, requires_expiry_tracking, is_controlled,
+                                    is_active, created_at_utc, created_by
+                                ) VALUES (
+                                    @id, @gtin, @drugName, @manufacturerName, @manufacturerGln,
+                                    @price, @category, @hasDatamatrix, @requiresExpiryTracking, @isControlled,
+                                    @isActive, NOW(), @createdBy
+                                )
+                                ON CONFLICT (gtin) DO NOTHING";
+
+                            await using var cmd = new NpgsqlCommand(insertQuery, conn);
+                            cmd.Parameters.AddWithValue("@id", Guid.NewGuid());
+                            cmd.Parameters.AddWithValue("@gtin", product.Gtin);
+                            cmd.Parameters.AddWithValue("@drugName", product.DrugName);
+                            cmd.Parameters.AddWithValue("@manufacturerName", product.ManufacturerName);
+                            cmd.Parameters.AddWithValue("@manufacturerGln", product.ManufacturerGln);
+                            cmd.Parameters.AddWithValue("@price", product.Price);
+                            cmd.Parameters.AddWithValue("@category", product.Category);
+                            cmd.Parameters.AddWithValue("@hasDatamatrix", product.HasDatamatrix);
+                            cmd.Parameters.AddWithValue("@requiresExpiryTracking", product.RequiresExpiryTracking);
+                            cmd.Parameters.AddWithValue("@isControlled", product.IsControlled);
+                            cmd.Parameters.AddWithValue("@isActive", product.IsActive);
+                            cmd.Parameters.AddWithValue("@createdBy", "mock"); // ✅ Mock data identifier
+
+                            var rowsAffected = await cmd.ExecuteNonQueryAsync(ct);
+                            if (rowsAffected > 0)
+                            {
+                                createdCount++;
+                                Console.WriteLine($"✅ Created: {product.DrugName}");
+                            }
+                            else
+                            {
+                                skippedCount++;
+                                Console.WriteLine($"⚠️ Skipped (duplicate GTIN): {product.Gtin} - {product.DrugName}");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            errors.Add($"{product.DrugName}: {ex.Message}");
+                            Console.WriteLine($"❌ Error: {product.DrugName} - {ex.Message}");
+                        }
+                    }
+                    
+                    Console.WriteLine($"📊 Summary - Created: {createdCount}, Skipped: {skippedCount}, Errors: {errors.Count}");
+
+                    opasLogger.LogDataAccess(tenantReq.Username, "Product", "SeedMockData", new { 
+                        TenantId = tenantReq.TenantId,
+                        Created = createdCount,
+                        Errors = errors.Count,
+                        Total = mockProducts.Count
+                    });
+
+                    return Results.Ok(new { 
+                        message = $"Successfully seeded {createdCount} mock products (skipped {skippedCount} duplicates)",
+                        created = createdCount,
+                        skipped = skippedCount,
+                        errors = errors.Count,
+                        total = mockProducts.Count,
+                        errorDetails = errors
+                    });
+                }
+                catch (Exception ex)
+                {
+                    opasLogger.LogSystemEvent("ProductSeed", $"Failed to seed mock products: {ex.Message}", new { 
+                        TenantId = tenantReq.TenantId,
+                        Error = ex.Message
+                    });
+
+                    return Results.Problem(
+                        title: "Mock Product Seed Failed",
+                        detail: ex.Message,
+                        statusCode: 500
+                    );
+                }
+            }
+        })
+        .WithName("SeedMockProducts")
+        .WithSummary("Mock ürün verisi oluştur")
+        .WithDescription("100 adet mock ürün ekler (created_by='mock' ile tanınabilir)")
+        .Produces<object>(200)
+        .Produces<ProblemDetails>(500);
     }
 
     public record UpdateProductRequest(string? DrugName, decimal? Price);
+
+    private static string BuildTenantConnectionString(string tenantId)
+    {
+        var gln = tenantId.Replace("TNT_", "");
+        return $"Host=127.0.0.1;Port=5432;Database=opas_tenant_{gln};Username=postgres;Password=postgres";
+    }
 }

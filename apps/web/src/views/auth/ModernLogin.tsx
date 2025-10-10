@@ -380,13 +380,26 @@ export default function ModernLogin() {
 
               {/* Form */}
               <Fade in={mounted} timeout={1500}>
-                <Box component="form" sx={{ mb: 3 }}>
+                <Box 
+                  component="form" 
+                  onSubmit={(e) => {
+                    e.preventDefault()
+                    handleLogin()
+                  }}
+                  sx={{ mb: 3 }}
+                >
                   <ModernTextField
                     fullWidth
                     label="Kullanıcı Adı"
                     type="text"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        handleLogin()
+                      }
+                    }}
                     sx={{ mb: 3 }}
                     InputProps={{
                       startAdornment: (
@@ -411,6 +424,12 @@ export default function ModernLogin() {
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        handleLogin()
+                      }
+                    }}
                     sx={{ mb: 4 }}
                     InputProps={{
                       startAdornment: (

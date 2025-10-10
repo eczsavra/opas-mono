@@ -19,17 +19,17 @@ public static class CustomerEndpoints
 
         // GET /api/tenant/customers - List & Search customers
         group.MapGet("/", async (
-            [FromQuery] string? query,
-            [FromQuery] string? customerType,
-            [FromQuery] string? gender,
-            [FromQuery] string? city,
-            [FromQuery] bool? isActive,
-            [FromQuery] int page,
-            [FromQuery] int pageSize,
             [AsParameters] TenantRequest tenantReq,
             IOpasLogger opasLogger,
             HttpContext httpContext,
-            CancellationToken ct) =>
+            CancellationToken ct,
+            [FromQuery] string? query = null,
+            [FromQuery] string? customerType = null,
+            [FromQuery] string? gender = null,
+            [FromQuery] string? city = null,
+            [FromQuery] bool? isActive = null,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 50) =>
         {
             using (OpasLogContext.EnrichFromHttpContext(httpContext))
             {
@@ -433,6 +433,11 @@ public static class CustomerEndpoints
                     var createdCount = 0;
                     var errors = new List<string>();
 
+                    // Get initial sequence number ONCE
+                    var seqQuery = "SELECT COALESCE(MAX(CAST(SUBSTRING(id FROM 20) AS INT)), 0) + 1 FROM customers";
+                    using var seqCmd = new NpgsqlCommand(seqQuery, conn);
+                    var nextSeq = Convert.ToInt32(await seqCmd.ExecuteScalarAsync(ct));
+
                     foreach (var request in mockCustomers)
                     {
                         try
@@ -445,17 +450,14 @@ public static class CustomerEndpoints
                                 request.FatherTc,
                                 request.BirthDate);
 
-                            // Get next sequence number
-                            var seqQuery = "SELECT COALESCE(MAX(CAST(SUBSTRING(id FROM 20) AS INT)), 0) + 1 FROM customers";
-                            using var seqCmd = new NpgsqlCommand(seqQuery, conn);
-                            var nextSeq = Convert.ToInt32(await seqCmd.ExecuteScalarAsync(ct));
-
-                            // Generate tenant-specific ID
+                            // Generate tenant-specific ID with incrementing sequence
                             var tenantCustomerId = CustomerIdGenerator.GenerateTenantCustomerId(
                                 request.FirstName,
                                 request.LastName,
                                 gln,
                                 nextSeq);
+                            
+                            nextSeq++; // ✅ Her customer için sequence artır
 
                             // Calculate age
                             int? age = request.BirthDate.HasValue

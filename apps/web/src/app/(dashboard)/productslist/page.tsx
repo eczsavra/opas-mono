@@ -28,7 +28,14 @@ import {
   TableSortLabel,
   Skeleton,
   Stack,
-  Divider
+  Divider,
+  Menu,
+  ListItemIcon,
+  ListItemText,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions
 } from '@mui/material'
 import { 
   Search as SearchIcon,
@@ -42,7 +49,12 @@ import {
   Inventory as InventoryIcon,
   Business as BusinessIcon,
   MonetizationOn as MoneyIcon,
-  Schedule as ScheduleIcon
+  Schedule as ScheduleIcon,
+  QrCode2 as QrCodeIcon,
+  ViewWeek as BarcodeIcon,
+  History as HistoryIcon,
+  CheckCircle as CheckIcon,
+  Info as InfoIcon
 } from '@mui/icons-material'
 // TenantSidebar and TenantNavbar removed - using global layout
 
@@ -102,6 +114,26 @@ export default function ProductsListPage() {
   const [rowsPerPage, setRowsPerPage] = useState(50)
   const [totalCount, setTotalCount] = useState(0)
   const [, setTotalPages] = useState(0)
+
+  // Context Menu State
+  const [contextMenu, setContextMenu] = useState<{
+    mouseX: number
+    mouseY: number
+    product: ProductRecord | null
+  } | null>(null)
+
+  // Info Dialog State
+  const [infoDialog, setInfoDialog] = useState<{
+    open: boolean
+    title: string
+    message: string
+    icon: 'history' | null
+  }>({
+    open: false,
+    title: '',
+    message: '',
+    icon: null
+  })
 
   // Load product statistics
   const loadStats = useCallback(async () => {
@@ -233,6 +265,75 @@ export default function ProductsListPage() {
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
+    })
+  }
+
+  // Context Menu Handlers
+  const handleContextMenu = (event: React.MouseEvent, product: ProductRecord) => {
+    event.preventDefault()
+    event.stopPropagation()
+    setContextMenu(
+      contextMenu === null
+        ? {
+            mouseX: event.clientX + 2,
+            mouseY: event.clientY - 6,
+            product,
+          }
+        : null
+    )
+  }
+
+  const handleContextMenuClose = () => {
+    setContextMenu(null)
+  }
+
+  const handleCopyQRCode = async () => {
+    if (contextMenu?.product) {
+      const qrData = contextMenu.product.gtin
+      
+      try {
+        await navigator.clipboard.writeText(qrData)
+        // Sessizce kopyala - uyarı yok
+      } catch {
+        // Hata durumunda bile sessiz - clipboard API çalışmıyorsa kullanıcı anlayacak
+      }
+    }
+    handleContextMenuClose()
+  }
+
+  const handleCopyBarcode = async () => {
+    if (contextMenu?.product) {
+      const barcode = contextMenu.product.gtin
+      
+      try {
+        await navigator.clipboard.writeText(barcode)
+        // Sessizce kopyala - uyarı yok
+      } catch {
+        // Hata durumunda bile sessiz
+      }
+    }
+    handleContextMenuClose()
+  }
+
+  const handleProductHistory = () => {
+    if (contextMenu?.product) {
+      const product = contextMenu.product
+      setInfoDialog({
+        open: true,
+        title: 'Ürün Hareketleri',
+        message: `${product.drugName} ürünü için hareket geçmişi özelliği çok yakında eklenecek. Bu özellik ile ürünün alış, satış, stok girişi/çıkışı gibi tüm hareketlerini görebileceksiniz.`,
+        icon: 'history'
+      })
+    }
+    handleContextMenuClose()
+  }
+
+  const handleCloseInfoDialog = () => {
+    setInfoDialog({
+      open: false,
+      title: '',
+      message: '',
+      icon: null
     })
   }
 
@@ -514,7 +615,12 @@ export default function ProductsListPage() {
                     </TableRow>
                   ) : (
                     products.map((product) => (
-                      <TableRow key={product.id} hover>
+                      <TableRow 
+                        key={product.id} 
+                        hover
+                        onContextMenu={(e) => handleContextMenu(e, product)}
+                        sx={{ cursor: 'context-menu' }}
+                      >
                         <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>
                           {product.gtin}
                         </TableCell>
@@ -596,6 +702,171 @@ export default function ProductsListPage() {
               sx={{ px: 2 }}
             />
           </Paper>
+
+      {/* Context Menu */}
+      <Menu
+        open={contextMenu !== null}
+        onClose={handleContextMenuClose}
+        anchorReference="anchorPosition"
+        anchorPosition={
+          contextMenu !== null
+            ? { top: contextMenu.mouseY, left: contextMenu.mouseX }
+            : undefined
+        }
+        PaperProps={{
+          sx: {
+            borderRadius: 2,
+            boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+            minWidth: 240,
+          },
+        }}
+      >
+        <Box sx={{ px: 2, py: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'text.secondary' }}>
+            {contextMenu?.product?.drugName}
+          </Typography>
+          <Typography variant="caption" sx={{ color: 'text.disabled', fontFamily: 'monospace' }}>
+            {contextMenu?.product?.gtin}
+          </Typography>
+        </Box>
+
+        <MenuItem onClick={handleCopyQRCode} sx={{ py: 1.5 }}>
+          <ListItemIcon>
+            <QrCodeIcon fontSize="small" sx={{ color: '#8b5cf6' }} />
+          </ListItemIcon>
+          <ListItemText 
+            primary="Karekod Kopyala" 
+            primaryTypographyProps={{ fontSize: '0.9rem', fontWeight: 500 }}
+          />
+        </MenuItem>
+
+        <MenuItem onClick={handleCopyBarcode} sx={{ py: 1.5 }}>
+          <ListItemIcon>
+            <BarcodeIcon fontSize="small" sx={{ color: '#0ea5e9' }} />
+          </ListItemIcon>
+          <ListItemText 
+            primary="Barkod Kopyala" 
+            primaryTypographyProps={{ fontSize: '0.9rem', fontWeight: 500 }}
+          />
+        </MenuItem>
+
+        <Divider />
+
+        <MenuItem onClick={handleProductHistory} sx={{ py: 1.5 }}>
+          <ListItemIcon>
+            <HistoryIcon fontSize="small" sx={{ color: '#f59e0b' }} />
+          </ListItemIcon>
+          <ListItemText 
+            primary="Ürün Hareketleri" 
+            primaryTypographyProps={{ fontSize: '0.9rem', fontWeight: 500 }}
+          />
+        </MenuItem>
+      </Menu>
+
+      {/* Info Dialog */}
+      <Dialog
+        open={infoDialog.open}
+        onClose={handleCloseInfoDialog}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
+          }
+        }}
+      >
+        <DialogTitle
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2,
+            pb: 1,
+            background: 'linear-gradient(135deg, #fef3c7 0%, #fcd34d 100%)',
+            borderRadius: '12px 12px 0 0'
+          }}
+        >
+          <Box
+            sx={{
+              width: 56,
+              height: 56,
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'white',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+            }}
+          >
+            <HistoryIcon sx={{ fontSize: 32, color: '#f59e0b' }} />
+          </Box>
+          <Typography variant="h5" component="div" sx={{ fontWeight: 700, color: 'text.primary' }}>
+            {infoDialog.title}
+          </Typography>
+        </DialogTitle>
+
+        <DialogContent sx={{ pt: 3, pb: 2 }}>
+          <Alert 
+            severity="info"
+            icon={<InfoIcon />}
+            sx={{ 
+              borderRadius: 2,
+              '& .MuiAlert-message': {
+                fontSize: '0.95rem',
+                lineHeight: 1.6
+              }
+            }}
+          >
+            {infoDialog.message}
+          </Alert>
+
+          <Box
+            sx={{
+              mt: 3,
+              p: 2,
+              borderRadius: 2,
+              background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
+              border: '1px solid #86efac',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1.5
+            }}
+          >
+            <CheckIcon sx={{ color: '#22c55e', fontSize: 28 }} />
+            <Box>
+              <Typography variant="body2" sx={{ fontWeight: 600, color: '#166534', mb: 0.5 }}>
+                Geliştirme Devam Ediyor
+              </Typography>
+              <Typography variant="caption" sx={{ color: '#15803d', display: 'block' }}>
+                Bu özellik aktif olarak geliştirilmektedir ve yakında kullanıma sunulacaktır.
+              </Typography>
+            </Box>
+          </Box>
+        </DialogContent>
+
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button
+            onClick={handleCloseInfoDialog}
+            variant="contained"
+            fullWidth
+            sx={{
+              py: 1.5,
+              borderRadius: 2,
+              fontSize: '1rem',
+              fontWeight: 600,
+              textTransform: 'none',
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #5a67d8 0%, #6b3fa0 100%)',
+                boxShadow: '0 6px 16px rgba(102, 126, 234, 0.5)',
+              }
+            }}
+          >
+            Anladım
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }

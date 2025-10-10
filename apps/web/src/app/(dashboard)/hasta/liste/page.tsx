@@ -21,7 +21,15 @@ import {
   Tooltip,
   alpha,
   CircularProgress,
-  Alert
+  Alert,
+  Menu,
+  ListItemIcon,
+  ListItemText,
+  Divider,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions
 } from '@mui/material'
 import {
   Search as SearchIcon,
@@ -39,7 +47,11 @@ import {
   CalendarMonth as CalendarIcon,
   Close as CloseIcon,
   Save as SaveIcon,
-  Info as InfoIcon
+  Info as InfoIcon,
+  LocalShipping as EmanetIcon,
+  AttachMoney as DebtIcon,
+  Receipt as PrescriptionIcon,
+  CheckCircle as CheckIcon
 } from '@mui/icons-material'
 import { styled } from '@mui/material/styles'
 
@@ -164,6 +176,26 @@ export default function HastaListePage() {
   const [loading, setLoading] = useState(true)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null)
+  
+  // Context Menu State
+  const [contextMenu, setContextMenu] = useState<{
+    mouseX: number
+    mouseY: number
+    customer: Customer | null
+  } | null>(null)
+
+  // Info Dialog State
+  const [infoDialog, setInfoDialog] = useState<{
+    open: boolean
+    title: string
+    message: string
+    icon: 'emanet' | 'debt' | 'prescription' | null
+  }>({
+    open: false,
+    title: '',
+    message: '',
+    icon: null
+  })
   
   // Pagination & Infinite Scroll
   const [page, setPage] = useState(1)
@@ -422,6 +454,76 @@ export default function HastaListePage() {
     }
   }
 
+  // Context Menu Handlers
+  const handleContextMenu = (event: React.MouseEvent, customer: Customer) => {
+    event.preventDefault()
+    event.stopPropagation()
+    setContextMenu(
+      contextMenu === null
+        ? {
+            mouseX: event.clientX + 2,
+            mouseY: event.clientY - 6,
+            customer,
+          }
+        : null
+    )
+  }
+
+  const handleContextMenuClose = () => {
+    setContextMenu(null)
+  }
+
+  const handleEmanetList = () => {
+    if (contextMenu?.customer) {
+      // TODO: Implement emanet listesi
+      console.log('Emanet Listesi:', contextMenu.customer)
+      setInfoDialog({
+        open: true,
+        title: 'Emanet Listesi',
+        message: `${contextMenu.customer.firstName} ${contextMenu.customer.lastName} için emanet listesi özelliği çok yakında eklenecek. Bu özellik ile hastanın emanet bıraktığı ilaçları ve ürünleri görebileceksiniz.`,
+        icon: 'emanet'
+      })
+    }
+    handleContextMenuClose()
+  }
+
+  const handleDebts = () => {
+    if (contextMenu?.customer) {
+      // TODO: Implement borçlar
+      console.log('Borçlar:', contextMenu.customer)
+      setInfoDialog({
+        open: true,
+        title: 'Borç Takibi',
+        message: `${contextMenu.customer.firstName} ${contextMenu.customer.lastName} için borç takibi özelliği çok yakında eklenecek. Bu özellik ile hastanın ödenmemiş borçlarını ve ödeme geçmişini görebileceksiniz.`,
+        icon: 'debt'
+      })
+    }
+    handleContextMenuClose()
+  }
+
+  const handlePrescriptions = () => {
+    if (contextMenu?.customer) {
+      // TODO: Implement son 3 reçete
+      console.log('Son 3 Reçete:', contextMenu.customer)
+      setInfoDialog({
+        open: true,
+        title: 'Son Reçeteler',
+        message: `${contextMenu.customer.firstName} ${contextMenu.customer.lastName} için son 3 reçete özelliği çok yakında eklenecek. Bu özellik ile hastanın en son kullandığı reçeteleri ve ilaçları görebileceksiniz.`,
+        icon: 'prescription'
+      })
+    }
+    handleContextMenuClose()
+  }
+
+  const handleCloseInfoDialog = () => {
+    setInfoDialog({
+      open: false,
+      title: '',
+      message: '',
+      icon: null
+    })
+  }
+
   const getCustomerTypeLabel = (type: string) => {
     switch (type) {
       case 'INDIVIDUAL':
@@ -674,6 +776,7 @@ export default function HastaListePage() {
                   loadCustomerDetails(customer.id)
                 }
               }}
+              onContextMenu={(e) => handleContextMenu(e, customer)}
             >
               <StyledAccordionSummary expandIcon={<ExpandMoreIcon />}>
                 {/* Checkbox */}
@@ -948,6 +1051,183 @@ export default function HastaListePage() {
           </Button>
         </Box>
       </Drawer>
+
+      {/* Context Menu */}
+      <Menu
+        open={contextMenu !== null}
+        onClose={handleContextMenuClose}
+        anchorReference="anchorPosition"
+        anchorPosition={
+          contextMenu !== null
+            ? { top: contextMenu.mouseY, left: contextMenu.mouseX }
+            : undefined
+        }
+        PaperProps={{
+          sx: {
+            borderRadius: 2,
+            boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+            minWidth: 220,
+          },
+        }}
+      >
+        <Box sx={{ px: 2, py: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'text.secondary' }}>
+            {contextMenu?.customer?.firstName} {contextMenu?.customer?.lastName}
+          </Typography>
+          <Typography variant="caption" sx={{ color: 'text.disabled' }}>
+            {contextMenu?.customer?.globalPatientId}
+          </Typography>
+        </Box>
+
+        <MenuItem onClick={handleEmanetList} sx={{ py: 1.5 }}>
+          <ListItemIcon>
+            <EmanetIcon fontSize="small" sx={{ color: 'warning.main' }} />
+          </ListItemIcon>
+          <ListItemText 
+            primary="Emanet Listesi" 
+            primaryTypographyProps={{ fontSize: '0.9rem', fontWeight: 500 }}
+          />
+        </MenuItem>
+
+        <MenuItem onClick={handleDebts} sx={{ py: 1.5 }}>
+          <ListItemIcon>
+            <DebtIcon fontSize="small" sx={{ color: 'error.main' }} />
+          </ListItemIcon>
+          <ListItemText 
+            primary="Borçları" 
+            primaryTypographyProps={{ fontSize: '0.9rem', fontWeight: 500 }}
+          />
+        </MenuItem>
+
+        <Divider />
+
+        <MenuItem onClick={handlePrescriptions} sx={{ py: 1.5 }}>
+          <ListItemIcon>
+            <PrescriptionIcon fontSize="small" sx={{ color: 'primary.main' }} />
+          </ListItemIcon>
+          <ListItemText 
+            primary="Son 3 Reçetesi" 
+            primaryTypographyProps={{ fontSize: '0.9rem', fontWeight: 500 }}
+          />
+        </MenuItem>
+      </Menu>
+
+      {/* Info Dialog */}
+      <Dialog
+        open={infoDialog.open}
+        onClose={handleCloseInfoDialog}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
+          }
+        }}
+      >
+        <DialogTitle
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2,
+            pb: 1,
+            background: infoDialog.icon === 'emanet' 
+              ? 'linear-gradient(135deg, #fef3c7 0%, #fcd34d 100%)'
+              : infoDialog.icon === 'debt'
+              ? 'linear-gradient(135deg, #fee2e2 0%, #fca5a5 100%)'
+              : 'linear-gradient(135deg, #dbeafe 0%, #93c5fd 100%)',
+            borderRadius: '12px 12px 0 0'
+          }}
+        >
+          <Box
+            sx={{
+              width: 56,
+              height: 56,
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'white',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+            }}
+          >
+            {infoDialog.icon === 'emanet' && (
+              <EmanetIcon sx={{ fontSize: 32, color: '#f59e0b' }} />
+            )}
+            {infoDialog.icon === 'debt' && (
+              <DebtIcon sx={{ fontSize: 32, color: '#ef4444' }} />
+            )}
+            {infoDialog.icon === 'prescription' && (
+              <PrescriptionIcon sx={{ fontSize: 32, color: '#3b82f6' }} />
+            )}
+          </Box>
+          <Typography variant="h5" component="div" sx={{ fontWeight: 700, color: 'text.primary' }}>
+            {infoDialog.title}
+          </Typography>
+        </DialogTitle>
+
+        <DialogContent sx={{ pt: 3, pb: 2 }}>
+          <Alert 
+            severity="info" 
+            icon={<InfoIcon />}
+            sx={{ 
+              borderRadius: 2,
+              '& .MuiAlert-message': {
+                fontSize: '0.95rem',
+                lineHeight: 1.6
+              }
+            }}
+          >
+            {infoDialog.message}
+          </Alert>
+
+          <Box
+            sx={{
+              mt: 3,
+              p: 2,
+              borderRadius: 2,
+              background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
+              border: '1px solid #86efac',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1.5
+            }}
+          >
+            <CheckIcon sx={{ color: '#22c55e', fontSize: 28 }} />
+            <Box>
+              <Typography variant="body2" sx={{ fontWeight: 600, color: '#166534', mb: 0.5 }}>
+                Geliştirme Devam Ediyor
+              </Typography>
+              <Typography variant="caption" sx={{ color: '#15803d', display: 'block' }}>
+                Bu özellik aktif olarak geliştirilmektedir ve yakında kullanıma sunulacaktır.
+              </Typography>
+            </Box>
+          </Box>
+        </DialogContent>
+
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button
+            onClick={handleCloseInfoDialog}
+            variant="contained"
+            fullWidth
+            sx={{
+              py: 1.5,
+              borderRadius: 2,
+              fontSize: '1rem',
+              fontWeight: 600,
+              textTransform: 'none',
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #5a67d8 0%, #6b3fa0 100%)',
+                boxShadow: '0 6px 16px rgba(102, 126, 234, 0.5)',
+              }
+            }}
+          >
+            Anladım
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }

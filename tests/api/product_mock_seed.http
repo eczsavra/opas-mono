@@ -1,0 +1,27 @@
+### Product Mock Data Seed Tests
+@baseUrl = http://localhost:5080
+@tenantId = TNT_8680001530144
+@username = savra
+
+### 1. Seed 100 Mock Products
+POST {{baseUrl}}/api/tenant/products/seed-mock-data
+X-TenantId: {{tenantId}}
+X-Username: {{username}}
+Content-Type: application/json
+
+### 2. List Products (verify mock data)
+GET {{baseUrl}}/api/tenant/products?page=1&pageSize=50
+X-TenantId: {{tenantId}}
+X-Username: {{username}}
+
+### 3. Search Mock Products
+GET {{baseUrl}}/api/tenant/products?page=1&pageSize=50&search=ABC
+X-TenantId: {{tenantId}}
+X-Username: {{username}}
+
+### 4. Delete All Mock Products (cleanup)
+# TODO: Delete endpoint'i lazım
+# DELETE {{baseUrl}}/api/tenant/products/mock
+# X-TenantId: {{tenantId}}
+# X-Username: {{username}}
+

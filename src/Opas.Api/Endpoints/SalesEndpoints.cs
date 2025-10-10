@@ -33,7 +33,6 @@ public static class SalesEndpoints
         [FromBody] CompleteSaleRequest request,
         [FromHeader(Name = "X-TenantId")] string tenantId,
         [FromHeader(Name = "X-Username")] string username,
-        [FromServices] IConfiguration config,
         [FromServices] IOpasLogger logger)
     {
         if (string.IsNullOrEmpty(tenantId) || string.IsNullOrEmpty(username))
@@ -41,12 +40,25 @@ public static class SalesEndpoints
             return Results.BadRequest(new { error = "TenantId and Username are required" });
         }
 
+        // Validate request
+        if (request == null)
+        {
+            return Results.BadRequest(new { error = "Request body is required" });
+        }
+
+        if (request.Items == null || request.Items.Count == 0)
+        {
+            return Results.BadRequest(new { error = "Sale must have at least one item" });
+        }
+
+        if (request.Payment == null)
+        {
+            return Results.BadRequest(new { error = "Payment information is required" });
+        }
+
         try
         {
-            var gln = tenantId.Replace("TNT_", "");
-            var tenantDbName = $"opas_tenant_{gln}";
-            var connectionString = config.GetConnectionString("PostgreSQL")!
-                .Replace("Database=opas_control", $"Database={tenantDbName}");
+            var connectionString = BuildTenantConnectionString(tenantId);
 
             await using var conn = new NpgsqlConnection(connectionString);
             await conn.OpenAsync();
@@ -69,13 +81,13 @@ public static class SalesEndpoints
                         sale_id, sale_number, sale_date,
                         subtotal_amount, discount_amount, total_amount,
                         payment_method, payment_status, sale_type,
-                        customer_name, customer_tc, customer_phone,
+                        customer_id, customer_name, customer_tc, customer_phone,
                         notes, created_by, created_at, updated_at
                     ) VALUES (
                         @sale_id, @sale_number, NOW(),
                         @subtotal, @discount, @total,
                         @payment_method, @payment_status, @sale_type,
-                        @customer_name, @customer_tc, @customer_phone,
+                        @customer_id, @customer_name, @customer_tc, @customer_phone,
                         @notes, @created_by, NOW(), NOW()
                     )";
 
@@ -88,7 +100,8 @@ public static class SalesEndpoints
                     cmd.Parameters.AddWithValue("@total", total);
                     cmd.Parameters.AddWithValue("@payment_method", request.Payment.Method);
                     cmd.Parameters.AddWithValue("@payment_status", "COMPLETED");
-                    cmd.Parameters.AddWithValue("@sale_type", request.SaleType);
+                    cmd.Parameters.AddWithValue("@sale_type", request.SaleType ?? "NORMAL");
+                    cmd.Parameters.AddWithValue("@customer_id", (object?)request.Customer?.CustomerId ?? DBNull.Value);
                     cmd.Parameters.AddWithValue("@customer_name", (object?)request.Customer?.Name ?? DBNull.Value);
                     cmd.Parameters.AddWithValue("@customer_tc", (object?)request.Customer?.TcNo ?? DBNull.Value);
                     cmd.Parameters.AddWithValue("@customer_phone", (object?)request.Customer?.Phone ?? DBNull.Value);
@@ -118,7 +131,7 @@ public static class SalesEndpoints
                     await using (var cmd = new NpgsqlCommand(insertItemSql, conn, transaction))
                     {
                         cmd.Parameters.AddWithValue("@sale_id", saleId);
-                        cmd.Parameters.AddWithValue("@product_id", item.ProductId);
+                        cmd.Parameters.AddWithValue("@product_id", Guid.Parse(item.ProductId));
                         cmd.Parameters.AddWithValue("@product_name", item.ProductName);
                         cmd.Parameters.AddWithValue("@product_category", (object?)item.ProductCategory ?? DBNull.Value);
                         cmd.Parameters.AddWithValue("@quantity", item.Quantity);
@@ -142,7 +155,7 @@ public static class SalesEndpoints
                             unit_cost, total_cost, serial_number, expiry_date, lot_number,
                             notes, created_by, created_at
                         ) VALUES (
-                            @movement_number, 'SALE', @product_id, @quantity_change,
+                            @movement_number, 'SALE_RETAIL', @product_id, @quantity_change,
                             @unit_cost, @total_cost, @serial_number, @expiry_date, @lot_number,
                             @notes, @created_by, NOW()
                         )";
@@ -150,7 +163,7 @@ public static class SalesEndpoints
                     await using (var cmd = new NpgsqlCommand(insertMovementSql, conn, transaction))
                     {
                         cmd.Parameters.AddWithValue("@movement_number", movementNumber);
-                        cmd.Parameters.AddWithValue("@product_id", item.ProductId);
+                        cmd.Parameters.AddWithValue("@product_id", Guid.Parse(item.ProductId));
                         cmd.Parameters.AddWithValue("@quantity_change", -item.Quantity); // EKSİ (çıkış)
                         cmd.Parameters.AddWithValue("@unit_cost", (object?)item.UnitCost ?? DBNull.Value);
                         cmd.Parameters.AddWithValue("@total_cost", 
@@ -165,7 +178,7 @@ public static class SalesEndpoints
                     }
 
                     // c) Stock summary güncelle
-                    await UpdateStockSummaryAsync(conn, transaction, item.ProductId);
+                    await UpdateStockSummaryAsync(conn, transaction, Guid.Parse(item.ProductId));
                 }
 
                 // 3. DRAFT_SALES TEMİZLE (Tab'ı sil)
@@ -219,7 +232,6 @@ public static class SalesEndpoints
     private static async Task<IResult> GetSales(
         [FromHeader(Name = "X-TenantId")] string tenantId,
         [FromHeader(Name = "X-Username")] string username,
-        [FromServices] IConfiguration config,
         int page = 1,
         int pageSize = 20,
         string? startDate = null,
@@ -232,10 +244,7 @@ public static class SalesEndpoints
 
         try
         {
-            var gln = tenantId.Replace("TNT_", "");
-            var tenantDbName = $"opas_tenant_{gln}";
-            var connectionString = config.GetConnectionString("PostgreSQL")!
-                .Replace("Database=opas_control", $"Database={tenantDbName}");
+            var connectionString = BuildTenantConnectionString(tenantId);
 
             await using var conn = new NpgsqlConnection(connectionString);
             await conn.OpenAsync();
@@ -321,8 +330,7 @@ public static class SalesEndpoints
     /// </summary>
     private static async Task<IResult> GetSaleDetail(
         string saleId,
-        [FromHeader(Name = "X-TenantId")] string tenantId,
-        [FromServices] IConfiguration config)
+        [FromHeader(Name = "X-TenantId")] string tenantId)
     {
         if (string.IsNullOrEmpty(tenantId))
         {
@@ -331,10 +339,7 @@ public static class SalesEndpoints
 
         try
         {
-            var gln = tenantId.Replace("TNT_", "");
-            var tenantDbName = $"opas_tenant_{gln}";
-            var connectionString = config.GetConnectionString("PostgreSQL")!
-                .Replace("Database=opas_control", $"Database={tenantDbName}");
+            var connectionString = BuildTenantConnectionString(tenantId);
 
             await using var conn = new NpgsqlConnection(connectionString);
             await conn.OpenAsync();
@@ -447,49 +452,48 @@ public static class SalesEndpoints
         return result?.ToString() ?? "SM000001";
     }
 
-    private static async Task UpdateStockSummaryAsync(NpgsqlConnection conn, NpgsqlTransaction transaction, string productId)
+    private static async Task UpdateStockSummaryAsync(NpgsqlConnection conn, NpgsqlTransaction transaction, Guid productId)
     {
+        // Basitleştirilmiş - sadece temel bilgileri güncelle
         var updateQuery = @"
             INSERT INTO stock_summary (
-                product_id, total_quantity, reserved_quantity, available_quantity,
-                total_cost, average_cost, nearest_expiry_date, has_expiring_soon,
-                has_low_stock, needs_attention, last_updated
+                product_id, 
+                total_quantity, 
+                total_value, 
+                average_cost,
+                last_movement_date,
+                updated_at
             )
             SELECT 
-                @product_id,
-                COALESCE(SUM(quantity_change), 0),
-                0,
-                COALESCE(SUM(quantity_change), 0),
-                COALESCE(SUM(total_cost), 0),
+                @product_id::uuid,
+                COALESCE(SUM(quantity_change), 0)::int,
+                COALESCE(SUM(total_cost), 0)::decimal,
                 CASE 
                     WHEN COALESCE(SUM(quantity_change), 0) > 0 
                     THEN COALESCE(SUM(total_cost), 0) / COALESCE(SUM(quantity_change), 1)
                     ELSE 0
-                END,
-                MIN(expiry_date),
-                CASE WHEN MIN(expiry_date) <= NOW() + INTERVAL '30 days' THEN TRUE ELSE FALSE END,
-                CASE WHEN COALESCE(SUM(quantity_change), 0) < 10 THEN TRUE ELSE FALSE END,
-                CASE 
-                    WHEN COALESCE(SUM(quantity_change), 0) < 10 THEN TRUE
-                    WHEN MIN(expiry_date) <= NOW() + INTERVAL '30 days' THEN TRUE
-                    ELSE FALSE
-                END,
+                END::decimal,
+                MAX(created_at),
                 NOW()
             FROM stock_movements
-            WHERE product_id = @product_id
+            WHERE product_id = @product_id::uuid
             ON CONFLICT (product_id) DO UPDATE SET
                 total_quantity = EXCLUDED.total_quantity,
-                available_quantity = EXCLUDED.available_quantity,
-                total_cost = EXCLUDED.total_cost,
+                total_value = EXCLUDED.total_value,
                 average_cost = EXCLUDED.average_cost,
-                nearest_expiry_date = EXCLUDED.nearest_expiry_date,
-                has_expiring_soon = EXCLUDED.has_expiring_soon,
-                has_low_stock = EXCLUDED.has_low_stock,
-                needs_attention = EXCLUDED.needs_attention,
-                last_updated = NOW()";
+                last_movement_date = EXCLUDED.last_movement_date,
+                has_low_stock = CASE WHEN EXCLUDED.total_quantity < 10 THEN TRUE ELSE FALSE END,
+                needs_attention = CASE WHEN EXCLUDED.total_quantity < 10 THEN TRUE ELSE FALSE END,
+                updated_at = NOW()";
 
         await using var cmd = new NpgsqlCommand(updateQuery, conn, transaction);
         cmd.Parameters.AddWithValue("@product_id", productId);
         await cmd.ExecuteNonQueryAsync();
+    }
+
+    private static string BuildTenantConnectionString(string tenantId)
+    {
+        var gln = tenantId.Replace("TNT_", "");
+        return $"Host=127.0.0.1;Port=5432;Database=opas_tenant_{gln};Username=postgres;Password=postgres";
     }
 }

@@ -43,6 +43,8 @@ interface SaleTab {
   products: Product[] // Her tab'ın kendi ürün listesi
   paymentMethod?: string // CASH, CARD, CREDIT, CONSIGNMENT, IBAN, QR
   saleType?: string // NORMAL, CONSIGNMENT
+  customerId?: string // F3 ile seçilen hasta ID
+  customerName?: string // F3 ile seçilen hasta adı
 }
 
 interface SalesContextType {

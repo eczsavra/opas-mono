@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect, useRef } from 'react'
 import { 
   Box, 
   Container, 
@@ -7,11 +8,27 @@ import {
   Button, 
   Tabs, 
   Tab, 
-  Paper
+  Paper,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  InputAdornment,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemText,
+  CircularProgress,
+  Chip
 } from '@mui/material'
 import { 
   Add as AddIcon, 
-  Close as CloseIcon 
+  Close as CloseIcon,
+  Search as SearchIcon,
+  Person as PersonIcon,
+  Warning as WarningIcon,
+  SwapHoriz as SwapIcon
 } from '@mui/icons-material'
 import ModernSearchBox from '@/components/sales/ModernSearchBox'
 import { useSalesContext } from '@/contexts/SalesContext'
@@ -33,6 +50,14 @@ const TAB_COLORS = [
   '#b0bec5', '#c5e1a5', '#ffe0b2', '#e1bee7', '#ffcdd2'
 ]
 
+interface Customer {
+  id: string
+  firstName: string
+  lastName: string
+  phone: string
+  globalPatientId: string
+}
+
 export default function SatisPage() {
   // Context'ten state'leri al
   const {
@@ -44,7 +69,150 @@ export default function SatisPage() {
     addTab,
     removeTab,
     reorderTabs,
+    updateTab,
   } = useSalesContext()
+
+  // Customer Search Modal State
+  const [customerSearchOpen, setCustomerSearchOpen] = useState(false)
+  const [customerSearchQuery, setCustomerSearchQuery] = useState('')
+  const [customers, setCustomers] = useState<Customer[]>([])
+  const [loadingCustomers, setLoadingCustomers] = useState(false)
+  const customerSearchInputRef = useRef<HTMLInputElement>(null)
+  
+  // Customer Change Confirmation State
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean
+    oldCustomer: string
+    newCustomer: Customer | null
+  }>({
+    open: false,
+    oldCustomer: '',
+    newCustomer: null
+  })
+
+  // F3 keyboard shortcut for customer search
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'F3') {
+        e.preventDefault()
+        setCustomerSearchOpen(true)
+        // Focus input after modal opens
+        setTimeout(() => {
+          customerSearchInputRef.current?.focus()
+        }, 200)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
+  // Search customers when query changes
+  useEffect(() => {
+    const searchCustomers = async () => {
+      if (!customerSearchOpen) {
+        return
+      }
+
+      if (customerSearchQuery.trim().length < 2) {
+        setCustomers([])
+        setLoadingCustomers(false)
+        return
+      }
+
+      setLoadingCustomers(true)
+      try {
+        const tenantId = localStorage.getItem('tenantId')
+        const username = localStorage.getItem('username')
+
+        console.log('🔍 Searching customers with query:', customerSearchQuery) // DEBUG
+
+        const response = await fetch(`/api/opas/customers?query=${encodeURIComponent(customerSearchQuery)}&page=1&pageSize=20`, {
+          headers: {
+            'X-TenantId': tenantId!,
+            'X-Username': username!,
+          },
+        })
+
+        console.log('📡 Response status:', response.status) // DEBUG
+
+        if (response.ok) {
+          const data = await response.json()
+          console.log('✅ Customer search response:', data) // DEBUG
+          const customerList = data.Customers || data.customers || []
+          console.log('👥 Found customers:', customerList.length) // DEBUG
+          setCustomers(customerList)
+        } else {
+          const errorText = await response.text()
+          console.error('❌ Customer search failed:', response.status, errorText)
+          setCustomers([])
+        }
+      } catch (error) {
+        console.error('💥 Failed to search customers:', error)
+        setCustomers([])
+      } finally {
+        setLoadingCustomers(false)
+      }
+    }
+
+    const debounce = setTimeout(searchCustomers, 300)
+    return () => clearTimeout(debounce)
+  }, [customerSearchQuery, customerSearchOpen])
+
+  const handleCustomerSelect = (customer: Customer) => {
+    const currentTab = saleTabs.find(tab => tab.id === activeTab)
+    if (!currentTab) return
+
+    // Eğer tab'da zaten hasta varsa onay iste
+    if (currentTab.customerId && currentTab.customerName) {
+      setConfirmDialog({
+        open: true,
+        oldCustomer: currentTab.customerName,
+        newCustomer: customer
+      })
+      setCustomerSearchOpen(false)
+      setCustomerSearchQuery('')
+      setCustomers([])
+      return
+    }
+
+    // Hasta ata (ilk defa)
+    updateTab(currentTab.id, {
+      title: `${customer.firstName} ${customer.lastName}`,
+      customerId: customer.id,
+      customerName: `${customer.firstName} ${customer.lastName}`
+    })
+    
+    setCustomerSearchOpen(false)
+    setCustomerSearchQuery('')
+    setCustomers([])
+  }
+
+  const handleConfirmCustomerChange = () => {
+    const currentTab = saleTabs.find(tab => tab.id === activeTab)
+    if (!currentTab || !confirmDialog.newCustomer) return
+
+    const customer = confirmDialog.newCustomer
+    updateTab(currentTab.id, {
+      title: `${customer.firstName} ${customer.lastName}`,
+      customerId: customer.id,
+      customerName: `${customer.firstName} ${customer.lastName}`
+    })
+
+    setConfirmDialog({
+      open: false,
+      oldCustomer: '',
+      newCustomer: null
+    })
+  }
+
+  const handleCancelCustomerChange = () => {
+    setConfirmDialog({
+      open: false,
+      oldCustomer: '',
+      newCustomer: null
+    })
+  }
 
   const handleProductSelect = () => {
     // TODO: Seçilen ürünü satış sepetine ekle
@@ -184,10 +352,10 @@ export default function SatisPage() {
                     textTransform: 'none',
                     fontSize: '0.95rem', // ⚠️ Biraz daha büyük font
                     fontWeight: 600, // ⚠️ Daha kalın font
-                    px: 3, // ⚠️ Daha geniş padding
+                    px: 2, // ⚠️ Padding azaltıldı
                     py: 1.5,
-                    minWidth: 120, // ⚠️ Daha geniş min width
-                    maxWidth: 200, // ⚠️ Daha geniş max width
+                    minWidth: 100, // ⚠️ Min width azaltıldı
+                    maxWidth: 250, // ⚠️ Max width artırıldı - uzun isimler için
                     flexShrink: 0,
                     color: 'text.secondary',
                     borderRadius: '8px 8px 0 0', // ⚠️ Yuvarlatılmış üst köşeler
@@ -253,7 +421,7 @@ export default function SatisPage() {
                         overflow: 'hidden',
                       }}>
                         <Typography 
-                          variant="body1" // ⚠️ body2'den body1'e (daha büyük)
+                          variant="body1"
                           sx={{ 
                             fontWeight: 'inherit', 
                             color: 'inherit',
@@ -262,11 +430,17 @@ export default function SatisPage() {
                             whiteSpace: 'nowrap',
                             flexGrow: 1,
                             minWidth: 0,
-                            fontSize: '1rem', // ⚠️ Daha büyük font
-                            letterSpacing: '0.02em', // ⚠️ Hafif letter spacing
+                            // Dinamik font size - uzun isimler için agresif küçülme
+                            fontSize: tab.title.length > 25 ? '0.7rem' 
+                              : tab.title.length > 20 ? '0.75rem' 
+                              : tab.title.length > 15 ? '0.85rem' 
+                              : tab.title.length > 12 ? '0.9rem'
+                              : '1rem',
+                            letterSpacing: tab.title.length > 20 ? '0' : '0.02em',
+                            lineHeight: 1.2,
                           }}
                         >
-                          Satış #{tab.number}
+                          {tab.title}
                         </Typography>
                         <Box
                           component="span"
@@ -344,6 +518,349 @@ export default function SatisPage() {
               </Typography>
             </Paper>
           )}
+
+      {/* Customer Search Modal (F3) */}
+      <Dialog
+        open={customerSearchOpen}
+        onClose={() => {
+          setCustomerSearchOpen(false)
+          setCustomerSearchQuery('')
+          setCustomers([])
+        }}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 4,
+            boxShadow: '0 24px 80px rgba(0,0,0,0.2)',
+            overflow: 'hidden',
+          }
+        }}
+      >
+        <Box
+          sx={{
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            color: 'white',
+            p: 3,
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+            <Box
+              sx={{
+                width: 48,
+                height: 48,
+                borderRadius: '50%',
+                background: 'rgba(255,255,255,0.2)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backdropFilter: 'blur(10px)',
+              }}
+            >
+              <PersonIcon sx={{ fontSize: 28 }} />
+            </Box>
+            <Box>
+              <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
+                Hasta Ara
+              </Typography>
+              <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                F3 tuşu ile hızlıca erişebilirsiniz
+              </Typography>
+            </Box>
+          </Box>
+
+          <TextField
+            fullWidth
+            inputRef={customerSearchInputRef}
+            placeholder="Ad, Soyad veya TC Kimlik No ile arama yapın..."
+            value={customerSearchQuery}
+            onChange={(e) => setCustomerSearchQuery(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon sx={{ color: 'rgba(255,255,255,0.7)' }} />
+                </InputAdornment>
+              ),
+            }}
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                background: 'rgba(255,255,255,0.15)',
+                backdropFilter: 'blur(10px)',
+                borderRadius: 3,
+                color: 'white',
+                fontSize: '1.1rem',
+                '& fieldset': {
+                  borderColor: 'rgba(255,255,255,0.3)',
+                },
+                '&:hover fieldset': {
+                  borderColor: 'rgba(255,255,255,0.5)',
+                },
+                '&.Mui-focused fieldset': {
+                  borderColor: 'white',
+                  borderWidth: 2,
+                },
+              },
+              '& .MuiOutlinedInput-input': {
+                color: 'white',
+                '&::placeholder': {
+                  color: 'rgba(255,255,255,0.7)',
+                  opacity: 1,
+                },
+              },
+            }}
+          />
+
+        </Box>
+
+        <DialogContent sx={{ p: 0, background: '#f8fafc' }}>
+          {loadingCustomers ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
+              <CircularProgress size={48} thickness={4} />
+            </Box>
+          ) : customers.length > 0 ? (
+            <List sx={{ p: 2 }}>
+              {customers.map((customer) => (
+                <ListItem key={customer.id} disablePadding sx={{ mb: 1.5 }}>
+                  <ListItemButton
+                    onClick={() => handleCustomerSelect(customer)}
+                    sx={{
+                      borderRadius: 3,
+                      p: 2.5,
+                      background: 'white',
+                      border: '2px solid transparent',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+                      transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                      '&:hover': {
+                        borderColor: '#667eea',
+                        boxShadow: '0 8px 24px rgba(102, 126, 234, 0.15)',
+                        transform: 'translateY(-2px)',
+                      }
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%' }}>
+                      <Box
+                        sx={{
+                          width: 48,
+                          height: 48,
+                          borderRadius: '50%',
+                          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                          color: 'white',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '1.2rem',
+                          fontWeight: 700,
+                          flexShrink: 0,
+                        }}
+                      >
+                        {customer.firstName.charAt(0)}{customer.lastName.charAt(0)}
+                      </Box>
+                      <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.5 }}>
+                          <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1.1rem' }}>
+                            {customer.firstName} {customer.lastName}
+                          </Typography>
+                          <Chip
+                            label={customer.globalPatientId}
+                            size="small"
+                            sx={{
+                              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                              color: 'white',
+                              fontWeight: 600,
+                              fontSize: '0.7rem',
+                              height: 24,
+                            }}
+                          />
+                        </Box>
+                        <Typography variant="body2" sx={{ color: 'text.secondary', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          📞 {customer.phone}
+                        </Typography>
+                      </Box>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          color: '#667eea',
+                          fontWeight: 600,
+                          fontSize: '0.9rem',
+                        }}
+                      >
+                        Seç →
+                      </Typography>
+                    </Box>
+                  </ListItemButton>
+                </ListItem>
+              ))}
+            </List>
+          ) : customerSearchQuery.trim().length >= 2 ? (
+            <Box sx={{ textAlign: 'center', py: 8 }}>
+              <Typography variant="h6" sx={{ color: 'text.secondary', mb: 1 }}>
+                😔 Hasta Bulunamadı
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Arama kriterlerinize uygun hasta kaydı bulunamadı
+              </Typography>
+            </Box>
+          ) : (
+            <Box sx={{ textAlign: 'center', py: 8 }}>
+              <Typography variant="h6" sx={{ color: 'text.secondary', mb: 1 }}>
+                🔍 Hasta Arayın
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Aramaya başlamak için en az 2 karakter girin
+              </Typography>
+            </Box>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Customer Change Confirmation Dialog */}
+      <Dialog
+        open={confirmDialog.open}
+        onClose={handleCancelCustomerChange}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 4,
+            boxShadow: '0 24px 80px rgba(0,0,0,0.25)',
+            overflow: 'hidden',
+          }
+        }}
+      >
+        <Box
+          sx={{
+            background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+            color: 'white',
+            p: 4,
+            textAlign: 'center',
+          }}
+        >
+          <Box
+            sx={{
+              width: 80,
+              height: 80,
+              borderRadius: '50%',
+              background: 'rgba(255,255,255,0.2)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 16px',
+              backdropFilter: 'blur(10px)',
+              animation: 'pulse 2s infinite',
+              '@keyframes pulse': {
+                '0%, 100%': { transform: 'scale(1)', opacity: 1 },
+                '50%': { transform: 'scale(1.05)', opacity: 0.9 },
+              },
+            }}
+          >
+            <WarningIcon sx={{ fontSize: 48 }} />
+          </Box>
+          <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
+            Hasta Değişikliği
+          </Typography>
+          <Typography variant="body1" sx={{ opacity: 0.95 }}>
+            Bu satışta zaten bir hasta tanımlı
+          </Typography>
+        </Box>
+
+        <DialogContent sx={{ p: 4 }}>
+          <Box
+            sx={{
+              p: 3,
+              borderRadius: 3,
+              background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
+              border: '2px solid #fbbf24',
+              mb: 3,
+            }}
+          >
+            <Typography variant="body1" sx={{ fontWeight: 600, color: '#92400e', mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+              <WarningIcon sx={{ fontSize: 20 }} />
+              Mevcut Hasta
+            </Typography>
+            <Typography variant="h6" sx={{ color: '#78350f', fontWeight: 700 }}>
+              {confirmDialog.oldCustomer}
+            </Typography>
+          </Box>
+
+          <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
+            <SwapIcon sx={{ fontSize: 40, color: '#f59e0b' }} />
+          </Box>
+
+          <Box
+            sx={{
+              p: 3,
+              borderRadius: 3,
+              background: 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)',
+              border: '2px solid #3b82f6',
+            }}
+          >
+            <Typography variant="body1" sx={{ fontWeight: 600, color: '#1e40af', mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+              <PersonIcon sx={{ fontSize: 20 }} />
+              Yeni Hasta
+            </Typography>
+            <Typography variant="h6" sx={{ color: '#1e3a8a', fontWeight: 700 }}>
+              {confirmDialog.newCustomer?.firstName} {confirmDialog.newCustomer?.lastName}
+            </Typography>
+          </Box>
+
+          <Box
+            sx={{
+              mt: 3,
+              p: 2,
+              borderRadius: 2,
+              background: 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)',
+              border: '1px solid #f87171',
+            }}
+          >
+            <Typography variant="body2" sx={{ color: '#991b1b', fontWeight: 600, textAlign: 'center' }}>
+              ⚠️ Bu işlem geri alınamaz! Satış kaydı yeni hasta ile ilişkilendirilecektir.
+            </Typography>
+          </Box>
+        </DialogContent>
+
+        <DialogActions sx={{ px: 4, pb: 4, gap: 2 }}>
+          <Button
+            onClick={handleCancelCustomerChange}
+            variant="outlined"
+            fullWidth
+            sx={{
+              py: 1.5,
+              borderRadius: 2,
+              fontSize: '1rem',
+              fontWeight: 600,
+              textTransform: 'none',
+              borderColor: '#9ca3af',
+              color: '#6b7280',
+              '&:hover': {
+                borderColor: '#6b7280',
+                background: 'rgba(0,0,0,0.04)',
+              }
+            }}
+          >
+            İptal
+          </Button>
+          <Button
+            onClick={handleConfirmCustomerChange}
+            variant="contained"
+            fullWidth
+            sx={{
+              py: 1.5,
+              borderRadius: 2,
+              fontSize: '1rem',
+              fontWeight: 600,
+              textTransform: 'none',
+              background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+              boxShadow: '0 4px 12px rgba(245, 158, 11, 0.4)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)',
+                boxShadow: '0 6px 16px rgba(245, 158, 11, 0.5)',
+              }
+            }}
+          >
+            Evet, Değiştir
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   )
 }

@@ -1,0 +1,29 @@
+### Check Mock Products
+@baseUrl = http://localhost:5080
+@tenantId = TNT_8680001530144
+@username = savra
+
+### 1. Seed Mock Products (Response'u kontrol et)
+POST {{baseUrl}}/api/tenant/products/seed-mock-data
+X-TenantId: {{tenantId}}
+X-Username: {{username}}
+
+### 2. Count All Products in Tenant DB
+# Direct SQL check needed - use pgAdmin or psql:
+# SELECT COUNT(*) FROM products WHERE created_by = 'mock';
+
+### 3. List Products via API
+GET {{baseUrl}}/api/tenant/products?page=1&pageSize=100
+X-TenantId: {{tenantId}}
+X-Username: {{username}}
+
+### 4. Search Mock Products by Name
+GET {{baseUrl}}/api/tenant/products?search=ABC&page=1&pageSize=50
+X-TenantId: {{tenantId}}
+X-Username: {{username}}
+
+### 5. Search by Mock Barcode
+GET {{baseUrl}}/api/tenant/products?search=9999&page=1&pageSize=50
+X-TenantId: {{tenantId}}
+X-Username: {{username}}
+
