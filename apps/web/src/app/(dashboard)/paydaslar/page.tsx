@@ -27,8 +27,7 @@ import {
   Visibility as ViewIcon,
   Edit as EditIcon
 } from '@mui/icons-material'
-import TenantSidebar from '@/components/TenantSidebar'
-import TenantNavbar from '@/components/TenantNavbar'
+// TenantSidebar and TenantNavbar removed - using global layout
 
 interface GlnRecord {
   id: number
@@ -46,7 +45,7 @@ interface GlnRecord {
 }
 
 export default function StakeholdersPage() {
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  // Sidebar state removed - using global layout
   const [glnList, setGlnList] = useState<GlnRecord[]>([])
   const [filteredList, setFilteredList] = useState<GlnRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -194,25 +193,7 @@ export default function StakeholdersPage() {
   }
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#f8fafc' }}>
-      <TenantSidebar open={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} currentPath="/paydaslar" />
-      
-      <Box 
-        component="main" 
-        sx={{ 
-          flexGrow: 1,
-          minHeight: '100vh',
-          position: 'relative',
-          transition: 'margin 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-          marginLeft: { 
-            xs: 0, // Mobile'da margin yok (overlay)
-            md: sidebarOpen ? '280px' : 0 // Desktop'ta sidebar genişliği kadar margin
-          }
-        }}
-      >
-        <TenantNavbar open={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} onSidebarToggle={() => setSidebarOpen(!sidebarOpen)} />
-        
-        <Box sx={{ p: 3 }}>
+    <Box sx={{ p: 3 }}>
           {/* Header */}
           <Box sx={{ mb: 3 }}>
             <Typography variant="h4" component="h1" sx={{ 
@@ -409,8 +390,6 @@ export default function StakeholdersPage() {
               }
             />
           </Paper>
-        </Box>
-      </Box>
     </Box>
   )
 }

@@ -44,8 +44,7 @@ import {
   MonetizationOn as MoneyIcon,
   Schedule as ScheduleIcon
 } from '@mui/icons-material'
-import TenantSidebar from '@/components/TenantSidebar'
-import TenantNavbar from '@/components/TenantNavbar'
+// TenantSidebar and TenantNavbar removed - using global layout
 
 interface ProductRecord {
   id: string
@@ -82,7 +81,7 @@ type SortField = 'drug_name' | 'gtin' | 'manufacturer_name' | 'price' | 'created
 type SortOrder = 'asc' | 'desc'
 
 export default function ProductsListPage() {
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  // Sidebar state removed - using global layout
   const [products, setProducts] = useState<ProductRecord[]>([])
   const [stats, setStats] = useState<ProductStats | null>(null)
   const [loading, setLoading] = useState(true)
@@ -238,25 +237,7 @@ export default function ProductsListPage() {
   }
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#f8fafc' }}>
-      <TenantSidebar open={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} currentPath="/productslist" />
-      
-      <Box 
-        component="main" 
-        sx={{ 
-          flexGrow: 1,
-          minHeight: '100vh',
-          position: 'relative',
-          transition: 'margin 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-          marginLeft: { 
-            xs: 0,
-            md: sidebarOpen ? '280px' : 0
-          }
-        }}
-      >
-        <TenantNavbar open={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} onSidebarToggle={() => setSidebarOpen(!sidebarOpen)} />
-        
-        <Box sx={{ p: 3 }}>
+    <Box sx={{ p: 3 }}>
           {/* Header */}
           <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Box>
@@ -615,8 +596,6 @@ export default function ProductsListPage() {
               sx={{ px: 2 }}
             />
           </Paper>
-        </Box>
-      </Box>
     </Box>
   )
 }

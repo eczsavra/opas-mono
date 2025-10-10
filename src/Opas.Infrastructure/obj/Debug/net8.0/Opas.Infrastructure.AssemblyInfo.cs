@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Opas.Infrastructure")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+9cdfbb88e341e24a8fe55b4be4c98b642504db97")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+76cba139768fde04778a93d00fe6a8e944195192")]
 [assembly: System.Reflection.AssemblyProductAttribute("Opas.Infrastructure")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Opas.Infrastructure")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

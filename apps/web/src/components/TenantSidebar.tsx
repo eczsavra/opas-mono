@@ -22,7 +22,8 @@ import {
   Inventory as InventoryIcon,
   LocalPharmacy as PharmacyIcon,
   Speed,
-  PointOfSale as SalesIcon
+  PointOfSale as SalesIcon,
+  PersonAdd as PatientIcon
 } from '@mui/icons-material'
 import { styled } from '@mui/material/styles'
 
@@ -125,6 +126,13 @@ const navigationItems = [
     text: 'Stok', 
     icon: <InventoryIcon />, 
     path: '/stok/giris',
+    badge: null 
+  },
+  { 
+    id: 'patients', 
+    text: 'Hasta', 
+    icon: <PatientIcon />, 
+    path: '/hasta/liste',
     badge: 'YENİ' 
   },
   { 

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useCallback, useEffect } from 'react'
+import React, { useState, useCallback, useEffect, useMemo } from 'react'
 import { 
   Box, 
   TextField,
@@ -124,7 +124,9 @@ interface ModernSearchBoxProps {
 export default function ModernSearchBox({ tabId, onProductSelect }: ModernSearchBoxProps) {
   const { saleTabs, updateTab } = useSalesContext()
   const currentTab = saleTabs.find(tab => tab.id === tabId)
-  const selectedProducts = currentTab?.products || []
+  
+  // ✅ Wrap selectedProducts in useMemo to prevent unnecessary re-renders
+  const selectedProducts = useMemo(() => currentTab?.products || [], [currentTab?.products])
 
   const [inputValue, setInputValue] = useState('')
   const [options, setOptions] = useState<Product[]>([])

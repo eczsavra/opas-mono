@@ -208,6 +208,7 @@ app.MapDraftSalesEndpoints(); // Added Draft Sales Endpoints (Persistent Sales T
 app.MapStockMovementEndpoints(); // Added Stock Movement Endpoints (Inventory Management)
 app.MapStockSummaryEndpoints(); // Added Stock Summary Endpoints (Real-time Inventory Status)
 app.MapSalesEndpoints(); // Added Sales Endpoints (Complete Sale, Sales History)
+app.MapCustomerEndpoints(); // Added Customer Endpoints (Patient/Customer Management)
 app.MapStockBatchEndpoints(); // Added Stock Batch Endpoints (OTC Product Batch Management)
 app.MapStockImportEndpoints(); // Added Stock Import Endpoints (File-based Bulk Import)
 app.MapGlnRegistryEndpoints(); // Added GLN Registry Endpoints

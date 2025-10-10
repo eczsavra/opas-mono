@@ -502,6 +502,83 @@ public class TenantProvisioningService
                         RETURN new_number;
                     END;
                     $func$ LANGUAGE plpgsql;
+
+                    -- ========================================
+                    -- CUSTOMER (HASTA/MÜŞTERİ) MODÜLÜ
+                    -- ========================================
+                    
+                    -- Müşteriler tablosu
+                    CREATE TABLE IF NOT EXISTS customers (
+                        id TEXT PRIMARY KEY,
+                        global_patient_id TEXT UNIQUE NOT NULL,
+                        customer_type TEXT NOT NULL CHECK (customer_type IN ('INDIVIDUAL', 'FOREIGN', 'INFANT')),
+                        
+                        tc_no TEXT,
+                        passport_no TEXT,
+                        
+                        mother_tc TEXT,
+                        father_tc TEXT,
+                        
+                        guardian_tc TEXT,
+                        guardian_name TEXT,
+                        guardian_phone TEXT,
+                        guardian_relation TEXT,
+                        
+                        first_name TEXT NOT NULL,
+                        last_name TEXT NOT NULL,
+                        phone TEXT NOT NULL,
+                        birth_date DATE,
+                        birth_year INT,
+                        age INT,
+                        gender TEXT CHECK (gender IN ('M', 'F', 'OTHER')),
+                        
+                        city TEXT,
+                        district TEXT,
+                        neighborhood TEXT,
+                        street TEXT,
+                        building_no TEXT,
+                        apartment_no TEXT,
+                        
+                        emergency_contact_name TEXT,
+                        emergency_contact_phone TEXT,
+                        emergency_contact_relation TEXT,
+                        
+                        notes TEXT,
+                        kvkk_consent BOOLEAN DEFAULT FALSE,
+                        kvkk_consent_date TIMESTAMP,
+                        is_active BOOLEAN DEFAULT TRUE,
+                        created_at TIMESTAMP DEFAULT NOW(),
+                        updated_at TIMESTAMP DEFAULT NOW(),
+                        created_by TEXT,
+                        
+                        CONSTRAINT chk_customer_identity CHECK (
+                            (customer_type = 'INDIVIDUAL' AND tc_no IS NOT NULL) OR
+                            (customer_type = 'FOREIGN' AND passport_no IS NOT NULL) OR
+                            (customer_type = 'INFANT' AND (mother_tc IS NOT NULL OR father_tc IS NOT NULL))
+                        )
+                    );
+                    
+                    CREATE UNIQUE INDEX IF NOT EXISTS idx_customers_global_id ON customers(global_patient_id);
+                    CREATE INDEX IF NOT EXISTS idx_customers_tc ON customers(tc_no) WHERE tc_no IS NOT NULL;
+                    CREATE INDEX IF NOT EXISTS idx_customers_passport ON customers(passport_no) WHERE passport_no IS NOT NULL;
+                    CREATE INDEX IF NOT EXISTS idx_customers_phone ON customers(phone);
+                    CREATE INDEX IF NOT EXISTS idx_customers_name ON customers(first_name, last_name);
+                    CREATE INDEX IF NOT EXISTS idx_customers_parent ON customers(mother_tc, father_tc) WHERE customer_type = 'INFANT';
+                    CREATE INDEX IF NOT EXISTS idx_customers_created_at ON customers(created_at DESC);
+                    
+                    -- Trigger: updated_at otomatik güncelleme
+                    CREATE OR REPLACE FUNCTION update_customers_updated_at()
+                    RETURNS TRIGGER AS $trigfunc$
+                    BEGIN
+                        NEW.updated_at = NOW();
+                        RETURN NEW;
+                    END;
+                    $trigfunc$ LANGUAGE plpgsql;
+                    
+                    CREATE TRIGGER trg_customers_updated_at
+                        BEFORE UPDATE ON customers
+                        FOR EACH ROW
+                        EXECUTE FUNCTION update_customers_updated_at();
                 ";
 
                 using (var cmd = new NpgsqlCommand(createTablesSql, conn))

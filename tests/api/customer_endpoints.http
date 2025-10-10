@@ -1,0 +1,121 @@
+### Customer API Tests
+### Base URL: http://localhost:5080
+
+@baseUrl = http://localhost:5080
+@tenantId = TNT_8680001530144
+@username = savra
+
+### 1. Seed 600 Mock Customers (450 normal, 40 foreign, 10 infant, 100 children 0-18)
+POST {{baseUrl}}/api/tenant/customers/seed-mock-data
+X-TenantId: {{tenantId}}
+X-Username: {{username}}
+
+### 2. List All Customers (Paginated)
+GET {{baseUrl}}/api/tenant/customers?page=1&pageSize=50
+X-TenantId: {{tenantId}}
+X-Username: {{username}}
+
+### 3. Search Customers by Name
+GET {{baseUrl}}/api/tenant/customers?query=Ahmet&page=1&pageSize=20
+X-TenantId: {{tenantId}}
+X-Username: {{username}}
+
+### 4. Filter by Customer Type (INDIVIDUAL)
+GET {{baseUrl}}/api/tenant/customers?customerType=INDIVIDUAL&page=1&pageSize=20
+X-TenantId: {{tenantId}}
+X-Username: {{username}}
+
+### 5. Filter by Customer Type (FOREIGN)
+GET {{baseUrl}}/api/tenant/customers?customerType=FOREIGN&page=1&pageSize=20
+X-TenantId: {{tenantId}}
+X-Username: {{username}}
+
+### 6. Filter by Customer Type (INFANT)
+GET {{baseUrl}}/api/tenant/customers?customerType=INFANT&page=1&pageSize=20
+X-TenantId: {{tenantId}}
+X-Username: {{username}}
+
+### 7. Filter by Gender (Male)
+GET {{baseUrl}}/api/tenant/customers?gender=M&page=1&pageSize=20
+X-TenantId: {{tenantId}}
+X-Username: {{username}}
+
+### 8. Filter by City (İstanbul)
+GET {{baseUrl}}/api/tenant/customers?city=İstanbul&page=1&pageSize=20
+X-TenantId: {{tenantId}}
+X-Username: {{username}}
+
+### 9. Get Customer by ID (replace with actual ID after seeding)
+GET {{baseUrl}}/api/tenant/customers/HAS-AY-1530144-0000001
+X-TenantId: {{tenantId}}
+X-Username: {{username}}
+
+### 10. Create New Customer (Manual)
+POST {{baseUrl}}/api/tenant/customers
+X-TenantId: {{tenantId}}
+X-Username: {{username}}
+Content-Type: application/json
+
+{
+  "customerType": "INDIVIDUAL",
+  "tcNo": "12345678901",
+  "firstName": "Test",
+  "lastName": "Müşteri",
+  "phone": "0555 123 45 67",
+  "birthDate": "1990-01-15",
+  "gender": "M",
+  "city": "Ankara",
+  "district": "Çankaya",
+  "neighborhood": "Kızılay",
+  "street": "Atatürk Caddesi",
+  "buildingNo": "42",
+  "apartmentNo": "5",
+  "emergencyContactName": "Emine Müşteri",
+  "emergencyContactPhone": "0555 987 65 43",
+  "emergencyContactRelation": "Eş",
+  "notes": "Test müşteri",
+  "kvkkConsent": true
+}
+
+### 11. Update Customer
+PUT {{baseUrl}}/api/tenant/customers/HAS-AY-1530144-0000001
+X-TenantId: {{tenantId}}
+X-Username: {{username}}
+Content-Type: application/json
+
+{
+  "phone": "0555 999 88 77",
+  "city": "İzmir",
+  "notes": "Telefon ve şehir güncellendi"
+}
+
+### 12. Delete Customer (Soft Delete)
+DELETE {{baseUrl}}/api/tenant/customers/HAS-AY-1530144-0000001
+X-TenantId: {{tenantId}}
+X-Username: {{username}}
+
+### 13. Search Inactive Customers
+GET {{baseUrl}}/api/tenant/customers?isActive=false&page=1&pageSize=20
+X-TenantId: {{tenantId}}
+X-Username: {{username}}
+
+### 14. Complex Search (Name + Gender + City)
+GET {{baseUrl}}/api/tenant/customers?query=Ahmet&gender=M&city=İstanbul&page=1&pageSize=10
+X-TenantId: {{tenantId}}
+X-Username: {{username}}
+
+### 15. Get All Customers (Large page size for statistics)
+GET {{baseUrl}}/api/tenant/customers?page=1&pageSize=600
+X-TenantId: {{tenantId}}
+X-Username: {{username}}
+
+### 16. Filter Children with Guardian (0-12 age)
+GET {{baseUrl}}/api/tenant/customers?query=Veli&page=1&pageSize=50
+X-TenantId: {{tenantId}}
+X-Username: {{username}}
+
+### 17. Filter Teenagers without Guardian (12-18 age)
+GET {{baseUrl}}/api/tenant/customers?query=Reşit değil&page=1&pageSize=50
+X-TenantId: {{tenantId}}
+X-Username: {{username}}
+
